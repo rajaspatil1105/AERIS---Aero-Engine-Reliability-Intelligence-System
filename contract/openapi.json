@@ -1,0 +1,690 @@
+{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "AERIS Node 3",
+                 "description":  "Engine health twin core service. Models are placeholders trained on simulated data; see /caveats.",
+                 "version":  "0.1.0"
+             },
+    "paths":  {
+                  "/":  {
+                            "get":  {
+                                        "tags":  [
+                                                     "meta"
+                                                 ],
+                                        "summary":  "Root",
+                                        "operationId":  "root__get",
+                                        "responses":  {
+                                                          "200":  {
+                                                                      "description":  "Successful Response",
+                                                                      "content":  {
+                                                                                      "application/json":  {
+                                                                                                               "schema":  {
+                                                                                                                              "additionalProperties":  true,
+                                                                                                                              "type":  "object",
+                                                                                                                              "title":  "Response Root  Get"
+                                                                                                                          }
+                                                                                                           }
+                                                                                  }
+                                                                  }
+                                                      }
+                                    }
+                        },
+                  "/health":  {
+                                  "get":  {
+                                              "tags":  [
+                                                           "meta"
+                                                       ],
+                                              "summary":  "Health",
+                                              "operationId":  "health_health_get",
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "Successful Response",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "additionalProperties":  true,
+                                                                                                                                    "type":  "object",
+                                                                                                                                    "title":  "Response Health Health Get"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/caveats":  {
+                                   "get":  {
+                                               "tags":  [
+                                                            "meta"
+                                                        ],
+                                               "summary":  "Caveats",
+                                               "description":  "Model trust surface. The dashboard is expected to render this.",
+                                               "operationId":  "caveats_caveats_get",
+                                               "responses":  {
+                                                                 "200":  {
+                                                                             "description":  "Successful Response",
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "additionalProperties":  true,
+                                                                                                                                     "type":  "object",
+                                                                                                                                     "title":  "Response Caveats Caveats Get"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         }
+                                                             }
+                                           }
+                               },
+                  "/manifest":  {
+                                    "get":  {
+                                                "tags":  [
+                                                             "meta"
+                                                         ],
+                                                "summary":  "Manifest",
+                                                "operationId":  "manifest_manifest_get",
+                                                "responses":  {
+                                                                  "200":  {
+                                                                              "description":  "Successful Response",
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "additionalProperties":  true,
+                                                                                                                                      "type":  "object",
+                                                                                                                                      "title":  "Response Manifest Manifest Get"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                          }
+                                                                          }
+                                                              }
+                                            }
+                                },
+                  "/frames":  {
+                                  "post":  {
+                                               "tags":  [
+                                                            "inference"
+                                                        ],
+                                               "summary":  "Post Frame",
+                                               "description":  "Process one telemetry frame, persist it, return the verdict.",
+                                               "operationId":  "post_frame_frames_post",
+                                               "requestBody":  {
+                                                                   "required":  true,
+                                                                   "content":  {
+                                                                                   "application/json":  {
+                                                                                                            "schema":  {
+                                                                                                                           "$ref":  "#/components/schemas/TelemetryIn"
+                                                                                                                       }
+                                                                                                        }
+                                                                               }
+                                                               },
+                                               "responses":  {
+                                                                 "201":  {
+                                                                             "description":  "Successful Response",
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "type":  "object",
+                                                                                                                                     "additionalProperties":  true,
+                                                                                                                                     "title":  "Response Post Frame Frames Post"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         },
+                                                                 "422":  {
+                                                                             "description":  "Validation Error",
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         }
+                                                             }
+                                           },
+                                  "get":  {
+                                              "tags":  [
+                                                           "history"
+                                                       ],
+                                              "summary":  "Get Frames",
+                                              "operationId":  "get_frames_frames_get",
+                                              "parameters":  [
+                                                                 {
+                                                                     "name":  "limit",
+                                                                     "in":  "query",
+                                                                     "required":  false,
+                                                                     "schema":  {
+                                                                                    "type":  "integer",
+                                                                                    "maximum":  1000,
+                                                                                    "minimum":  1,
+                                                                                    "default":  50,
+                                                                                    "title":  "Limit"
+                                                                                }
+                                                                 },
+                                                                 {
+                                                                     "name":  "session_id",
+                                                                     "in":  "query",
+                                                                     "required":  false,
+                                                                     "schema":  {
+                                                                                    "anyOf":  [
+                                                                                                  {
+                                                                                                      "type":  "integer"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "type":  "null"
+                                                                                                  }
+                                                                                              ],
+                                                                                    "title":  "Session Id"
+                                                                                }
+                                                                 }
+                                                             ],
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "Successful Response",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "type":  "object",
+                                                                                                                                    "additionalProperties":  true,
+                                                                                                                                    "title":  "Response Get Frames Frames Get"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        },
+                                                                "422":  {
+                                                                            "description":  "Validation Error",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/explain":  {
+                                   "post":  {
+                                                "tags":  [
+                                                             "inference"
+                                                         ],
+                                                "summary":  "Post Explain",
+                                                "description":  "Attribution for one frame. Costs ~2 ms once warm.",
+                                                "operationId":  "post_explain_explain_post",
+                                                "parameters":  [
+                                                                   {
+                                                                       "name":  "top_n",
+                                                                       "in":  "query",
+                                                                       "required":  false,
+                                                                       "schema":  {
+                                                                                      "type":  "integer",
+                                                                                      "maximum":  14,
+                                                                                      "minimum":  1,
+                                                                                      "default":  5,
+                                                                                      "title":  "Top N"
+                                                                                  }
+                                                                   }
+                                                               ],
+                                                "requestBody":  {
+                                                                    "required":  true,
+                                                                    "content":  {
+                                                                                    "application/json":  {
+                                                                                                             "schema":  {
+                                                                                                                            "$ref":  "#/components/schemas/TelemetryIn"
+                                                                                                                        }
+                                                                                                         }
+                                                                                }
+                                                                },
+                                                "responses":  {
+                                                                  "200":  {
+                                                                              "description":  "Successful Response",
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "type":  "object",
+                                                                                                                                      "additionalProperties":  true,
+                                                                                                                                      "title":  "Response Post Explain Explain Post"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                          }
+                                                                          },
+                                                                  "422":  {
+                                                                              "description":  "Validation Error",
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                          }
+                                                                          }
+                                                              }
+                                            }
+                               },
+                  "/frames/{seq}":  {
+                                        "get":  {
+                                                    "tags":  [
+                                                                 "history"
+                                                             ],
+                                                    "summary":  "Get Frame",
+                                                    "operationId":  "get_frame_frames__seq__get",
+                                                    "parameters":  [
+                                                                       {
+                                                                           "name":  "seq",
+                                                                           "in":  "path",
+                                                                           "required":  true,
+                                                                           "schema":  {
+                                                                                          "type":  "integer",
+                                                                                          "title":  "Seq"
+                                                                                      }
+                                                                       },
+                                                                       {
+                                                                           "name":  "session_id",
+                                                                           "in":  "query",
+                                                                           "required":  false,
+                                                                           "schema":  {
+                                                                                          "anyOf":  [
+                                                                                                        {
+                                                                                                            "type":  "integer"
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "type":  "null"
+                                                                                                        }
+                                                                                                    ],
+                                                                                          "title":  "Session Id"
+                                                                                      }
+                                                                       }
+                                                                   ],
+                                                    "responses":  {
+                                                                      "200":  {
+                                                                                  "description":  "Successful Response",
+                                                                                  "content":  {
+                                                                                                  "application/json":  {
+                                                                                                                           "schema":  {
+                                                                                                                                          "type":  "object",
+                                                                                                                                          "additionalProperties":  true,
+                                                                                                                                          "title":  "Response Get Frame Frames  Seq  Get"
+                                                                                                                                      }
+                                                                                                                       }
+                                                                                              }
+                                                                              },
+                                                                      "422":  {
+                                                                                  "description":  "Validation Error",
+                                                                                  "content":  {
+                                                                                                  "application/json":  {
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                      }
+                                                                                                                       }
+                                                                                              }
+                                                                              }
+                                                                  }
+                                                }
+                                    },
+                  "/events":  {
+                                  "get":  {
+                                              "tags":  [
+                                                           "history"
+                                                       ],
+                                              "summary":  "Get Events",
+                                              "operationId":  "get_events_events_get",
+                                              "parameters":  [
+                                                                 {
+                                                                     "name":  "limit",
+                                                                     "in":  "query",
+                                                                     "required":  false,
+                                                                     "schema":  {
+                                                                                    "type":  "integer",
+                                                                                    "maximum":  1000,
+                                                                                    "minimum":  1,
+                                                                                    "default":  50,
+                                                                                    "title":  "Limit"
+                                                                                }
+                                                                 },
+                                                                 {
+                                                                     "name":  "severity",
+                                                                     "in":  "query",
+                                                                     "required":  false,
+                                                                     "schema":  {
+                                                                                    "anyOf":  [
+                                                                                                  {
+                                                                                                      "type":  "string"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "type":  "null"
+                                                                                                  }
+                                                                                              ],
+                                                                                    "title":  "Severity"
+                                                                                }
+                                                                 },
+                                                                 {
+                                                                     "name":  "session_id",
+                                                                     "in":  "query",
+                                                                     "required":  false,
+                                                                     "schema":  {
+                                                                                    "anyOf":  [
+                                                                                                  {
+                                                                                                      "type":  "integer"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "type":  "null"
+                                                                                                  }
+                                                                                              ],
+                                                                                    "title":  "Session Id"
+                                                                                }
+                                                                 }
+                                                             ],
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "Successful Response",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "type":  "object",
+                                                                                                                                    "additionalProperties":  true,
+                                                                                                                                    "title":  "Response Get Events Events Get"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        },
+                                                                "422":  {
+                                                                            "description":  "Validation Error",
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                        }
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/summary":  {
+                                   "get":  {
+                                               "tags":  [
+                                                            "history"
+                                                        ],
+                                               "summary":  "Get Summary",
+                                               "operationId":  "get_summary_summary_get",
+                                               "parameters":  [
+                                                                  {
+                                                                      "name":  "session_id",
+                                                                      "in":  "query",
+                                                                      "required":  false,
+                                                                      "schema":  {
+                                                                                     "anyOf":  [
+                                                                                                   {
+                                                                                                       "type":  "integer"
+                                                                                                   },
+                                                                                                   {
+                                                                                                       "type":  "null"
+                                                                                                   }
+                                                                                               ],
+                                                                                     "title":  "Session Id"
+                                                                                 }
+                                                                  }
+                                                              ],
+                                               "responses":  {
+                                                                 "200":  {
+                                                                             "description":  "Successful Response",
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "type":  "object",
+                                                                                                                                     "additionalProperties":  true,
+                                                                                                                                     "title":  "Response Get Summary Summary Get"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         },
+                                                                 "422":  {
+                                                                             "description":  "Validation Error",
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                         }
+                                                                         }
+                                                             }
+                                           }
+                               },
+                  "/sessions":  {
+                                    "get":  {
+                                                "tags":  [
+                                                             "history"
+                                                         ],
+                                                "summary":  "Get Sessions",
+                                                "operationId":  "get_sessions_sessions_get",
+                                                "parameters":  [
+                                                                   {
+                                                                       "name":  "limit",
+                                                                       "in":  "query",
+                                                                       "required":  false,
+                                                                       "schema":  {
+                                                                                      "type":  "integer",
+                                                                                      "maximum":  200,
+                                                                                      "minimum":  1,
+                                                                                      "default":  20,
+                                                                                      "title":  "Limit"
+                                                                                  }
+                                                                   }
+                                                               ],
+                                                "responses":  {
+                                                                  "200":  {
+                                                                              "description":  "Successful Response",
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "type":  "object",
+                                                                                                                                      "additionalProperties":  true,
+                                                                                                                                      "title":  "Response Get Sessions Sessions Get"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                          }
+                                                                          },
+                                                                  "422":  {
+                                                                              "description":  "Validation Error",
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                          }
+                                                                          }
+                                                              }
+                                            },
+                                    "post":  {
+                                                 "tags":  [
+                                                              "history"
+                                                          ],
+                                                 "summary":  "New Session",
+                                                 "operationId":  "new_session_sessions_post",
+                                                 "requestBody":  {
+                                                                     "required":  true,
+                                                                     "content":  {
+                                                                                     "application/json":  {
+                                                                                                              "schema":  {
+                                                                                                                             "$ref":  "#/components/schemas/SessionIn"
+                                                                                                                         }
+                                                                                                          }
+                                                                                 }
+                                                                 },
+                                                 "responses":  {
+                                                                   "201":  {
+                                                                               "description":  "Successful Response",
+                                                                               "content":  {
+                                                                                               "application/json":  {
+                                                                                                                        "schema":  {
+                                                                                                                                       "type":  "object",
+                                                                                                                                       "additionalProperties":  true,
+                                                                                                                                       "title":  "Response New Session Sessions Post"
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                           }
+                                                                           },
+                                                                   "422":  {
+                                                                               "description":  "Validation Error",
+                                                                               "content":  {
+                                                                                               "application/json":  {
+                                                                                                                        "schema":  {
+                                                                                                                                       "$ref":  "#/components/schemas/HTTPValidationError"
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                           }
+                                                                           }
+                                                               }
+                                             }
+                                },
+                  "/live":  {
+                                "get":  {
+                                            "tags":  [
+                                                         "history"
+                                                     ],
+                                            "summary":  "Live",
+                                            "description":  "Last processed frame, for a dashboard poll without WebSockets.",
+                                            "operationId":  "live_live_get",
+                                            "responses":  {
+                                                              "200":  {
+                                                                          "description":  "Successful Response",
+                                                                          "content":  {
+                                                                                          "application/json":  {
+                                                                                                                   "schema":  {
+                                                                                                                                  "additionalProperties":  true,
+                                                                                                                                  "type":  "object",
+                                                                                                                                  "title":  "Response Live Live Get"
+                                                                                                                              }
+                                                                                                               }
+                                                                                      }
+                                                                      }
+                                                          }
+                                        }
+                            }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "HTTPValidationError":  {
+                                                                   "properties":  {
+                                                                                      "detail":  {
+                                                                                                     "items":  {
+                                                                                                                   "$ref":  "#/components/schemas/ValidationError"
+                                                                                                               },
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Detail"
+                                                                                                 }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "title":  "HTTPValidationError"
+                                                               },
+                                       "SessionIn":  {
+                                                         "properties":  {
+                                                                            "note":  {
+                                                                                         "anyOf":  [
+                                                                                                       {
+                                                                                                           "type":  "string",
+                                                                                                           "maxLength":  200
+                                                                                                       },
+                                                                                                       {
+                                                                                                           "type":  "null"
+                                                                                                       }
+                                                                                                   ],
+                                                                                         "title":  "Note"
+                                                                                     }
+                                                                        },
+                                                         "type":  "object",
+                                                         "title":  "SessionIn"
+                                                     },
+                                       "TelemetryIn":  {
+                                                           "properties":  {
+                                                                              "altitude_ft":  {
+                                                                                                  "type":  "number",
+                                                                                                  "title":  "Altitude Ft"
+                                                                                              },
+                                                                              "ambient_temperature_C":  {
+                                                                                                            "type":  "number",
+                                                                                                            "title":  "Ambient Temperature C"
+                                                                                                        },
+                                                                              "throttle_pct":  {
+                                                                                                   "type":  "number",
+                                                                                                   "title":  "Throttle Pct"
+                                                                                               },
+                                                                              "rpm":  {
+                                                                                          "type":  "number",
+                                                                                          "title":  "Rpm"
+                                                                                      },
+                                                                              "fuelflow_kgh":  {
+                                                                                                   "type":  "number",
+                                                                                                   "title":  "Fuelflow Kgh"
+                                                                                               },
+                                                                              "coolant_temp_C":  {
+                                                                                                     "type":  "number",
+                                                                                                     "title":  "Coolant Temp C"
+                                                                                                 },
+                                                                              "EGT_mean_C":  {
+                                                                                                 "type":  "number",
+                                                                                                 "title":  "Egt Mean C"
+                                                                                             },
+                                                                              "oil_pressure_bar":  {
+                                                                                                       "type":  "number",
+                                                                                                       "title":  "Oil Pressure Bar"
+                                                                                                   },
+                                                                              "oil_temperature_C":  {
+                                                                                                        "type":  "number",
+                                                                                                        "title":  "Oil Temperature C"
+                                                                                                    }
+                                                                          },
+                                                           "type":  "object",
+                                                           "required":  [
+                                                                            "altitude_ft",
+                                                                            "ambient_temperature_C",
+                                                                            "throttle_pct",
+                                                                            "rpm",
+                                                                            "fuelflow_kgh",
+                                                                            "coolant_temp_C",
+                                                                            "EGT_mean_C",
+                                                                            "oil_pressure_bar",
+                                                                            "oil_temperature_C"
+                                                                        ],
+                                                           "title":  "TelemetryIn",
+                                                           "description":  "One engine telemetry frame. All nine channels are required."
+                                                       },
+                                       "ValidationError":  {
+                                                               "properties":  {
+                                                                                  "loc":  {
+                                                                                              "items":  {
+                                                                                                            "anyOf":  [
+                                                                                                                          {
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                                          {
+                                                                                                                              "type":  "integer"
+                                                                                                                          }
+                                                                                                                      ]
+                                                                                                        },
+                                                                                              "type":  "array",
+                                                                                              "title":  "Location"
+                                                                                          },
+                                                                                  "msg":  {
+                                                                                              "type":  "string",
+                                                                                              "title":  "Message"
+                                                                                          },
+                                                                                  "type":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Error Type"
+                                                                                           }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "loc",
+                                                                                "msg",
+                                                                                "type"
+                                                                            ],
+                                                               "title":  "ValidationError"
+                                                           }
+                                   }
+                   }
+}

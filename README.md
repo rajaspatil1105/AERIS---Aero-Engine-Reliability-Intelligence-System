@@ -48,3 +48,36 @@ deck accepts throttle only in [56.5, 100] % and ambient only in
 Training data is Cantera-generated from limited public Rotax 915 iS figures and
 is estimated ~70 % faithful. AERIS demonstrates the detection architecture, not
 certified thresholds.
+
+## Frontend integration notes
+
+`POST /frames` takes `TelemetryIn` - 9 required fields, no defaults:
+altitude_ft, ambient_temperature_C, throttle_pct, rpm, fuelflow_kgh,
+coolant_temp_C, EGT_mean_C, oil_pressure_bar, oil_temperature_C.
+The other 59 stored columns are derived server-side. Returns 201 with a
+32-key payload; the shape is identical for every status.
+
+Four statuses, not three: HEALTHY, ADVISORY, FAULT, UNAVAILABLE.
+ADVISORY has `is_healthy=false` and `fault_label=null` - a non-healthy frame
+does not always carry a label. UNAVAILABLE sets is_healthy, anomaly_probability
+and rul to null and puts the reason in `envelope_violations`.
+
+Display `rul_raw`, not `rul`. `rul` is EWMA-smoothed and lags badly on a single
+frame (oil-hot: rul_raw 18.4 vs rul 164.4). Both carry `rul_trusted=false` and
+`rul_units="unknown"`; rul_raw can go negative.
+
+`residuals` are unsigned - do not infer direction from them. `headline` already
+contains "(unvalidated)". `safety_alert` was false across all ten synthetic
+injections; do not build a UI element that depends on it firing.
+
+`POST /explain` returns 503 in this build because the twin runs with
+explain=False. Treat it as "explanation unavailable", not an error.
+
+The steady-state admission pre-filter lives in `shared/throttle_dynamics.py`,
+not in `api.py`. Frames POSTed during a throttle transient WILL be scored and
+may read as false faults. Whatever streams frames must apply the pre-filter, or
+the UI must suppress scoring while throttle is moving.
+
+`GET /caveats` returns session provenance, not the 43 declared caveats - see
+`CAVEATS.md` for those. Captured live payloads for every status are in
+`contract/`.

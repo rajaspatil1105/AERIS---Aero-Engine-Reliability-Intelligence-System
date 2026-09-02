@@ -1,0 +1,6 @@
+{
+  "http_status": 503,
+  "response": {
+    "detail": "explanations disabled (AERIS_EXPLAIN=0)"
+  }
+}

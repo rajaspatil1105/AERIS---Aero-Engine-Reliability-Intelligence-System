@@ -1,0 +1,62 @@
+{
+    "models_trusted":  false,
+    "data_provenance":  "Cantera simulation, synthetic",
+    "measured_engine_data":  false,
+    "artifacts":  [
+                      {
+                          "artifact":  "coolant_temp_C_baseline.pkl",
+                          "role":  "baseline_regressor",
+                          "trusted":  true,
+                          "caveat":  "healthy-only fit; residuals are meaningless outside the training envelope"
+                      },
+                      {
+                          "artifact":  "EGT_mean_C_baseline.pkl",
+                          "role":  "baseline_regressor",
+                          "trusted":  true,
+                          "caveat":  "healthy-only fit; residuals are meaningless outside the training envelope"
+                      },
+                      {
+                          "artifact":  "fuelflow_kgh_baseline.pkl",
+                          "role":  "baseline_regressor",
+                          "trusted":  true,
+                          "caveat":  "healthy-only fit; residuals are meaningless outside the training envelope"
+                      },
+                      {
+                          "artifact":  "oil_pressure_bar_baseline.pkl",
+                          "role":  "baseline_regressor",
+                          "trusted":  true,
+                          "caveat":  "healthy-only fit; residuals are meaningless outside the training envelope"
+                      },
+                      {
+                          "artifact":  "oil_temperature_C_baseline.pkl",
+                          "role":  "baseline_regressor",
+                          "trusted":  true,
+                          "caveat":  "healthy-only fit; residuals are meaningless outside the training envelope"
+                      },
+                      {
+                          "artifact":  "fault_classifier.pkl",
+                          "role":  "anomaly_gate",
+                          "trusted":  false,
+                          "caveat":  "F1 equals the trivial always-positive baseline; output is near chance. Disabled as a sole decision source; retrain on the multiclass matrix with labels collapsed to healthy / not-healthy."
+                      },
+                      {
+                          "artifact":  "fault_classifier_multiclass.pkl",
+                          "role":  "fault_classifier",
+                          "trusted":  false,
+                          "caveat":  "label map inferred, not read from training code; class \u0027fuel_pressure_dev\u0027 is never argmax for any fuel-flow excursion; responses saturate at the first offset step so severity is not resolved."
+                      },
+                      {
+                          "artifact":  "rul_regressor.pkl",
+                          "role":  "rul_regressor",
+                          "trusted":  false,
+                          "caveat":  "negative R2: worse than predicting the training mean. Display as a trend indicator only, never as a time-to-failure."
+                      }
+                  ],
+    "open_issues":  [
+                        "gate performance is at chance (F1 0.676 == trivial baseline)",
+                        "multiclass label map recovered by experiment, not read from training code",
+                        "training script advertises a 6-label encoder; the artifact has 5 classes",
+                        "class \u0027fuel_pressure_dev\u0027 is unreachable",
+                        "RUL R2 is negative and its units are unknown"
+                    ]
+}
