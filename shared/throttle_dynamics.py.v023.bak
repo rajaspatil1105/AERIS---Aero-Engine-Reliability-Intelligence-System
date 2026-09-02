@@ -54,7 +54,7 @@ from shared.stress_sim import (
     _extract,
 )
 
-THROTTLE_DYNAMICS_VERSION = "0.2.4"
+THROTTLE_DYNAMICS_VERSION = "0.2.3"
 FRAME_HZ = 10.0                  # matches RulEngine(frame_hz=10.0)
 
 # fourth outcome, local to this module; stress_sim's three are imported above
@@ -76,17 +76,12 @@ SETTLE_FRAC = 0.02          # retained for reporting only, NOT for admission
 # gate's own residual resolution guarantees an admitted frame scores what true
 # equilibrium scores. These values are JUDGEMENT, but CASE 3a measures the
 # resolution and asserts each one sits below it.
-# Set to ~0.2 x the resolution MEASURED TWO-SIDED by CASE 3a at 95% throttle,
-# 6000 ft, 10 C: rpm 6.82, EGT 1.373, coolant 0.01455, fuelflow 0.00358,
-# oil_temp 0.00174, oil_press 0.00019. Oil temperature is the binding channel
-# at 1.74 mK -- see caveat admission_cost_on_missions.
-#
-# rpm was originally set from a ONE-SIDED probe that read 38.84; measuring the
-# minus direction as well cut it to 6.82, because the nearest tree split below
-# equilibrium is much closer than the one above. A lagging channel always
-# approaches from one side, so two-sided is the only correct measurement.
+# Set to 0.2 x the resolution MEASURED by CASE 3a at 95% throttle, 6000 ft,
+# 10 C. Measured resolutions were: rpm 38.84, EGT 1.373, coolant 0.01455,
+# oil_temp 0.00174, fuelflow 0.00358, oil_press 0.00019. Oil temperature is
+# the binding channel at 1.74 mK -- see caveat admission_cost_on_missions.
 GATE_RESID_TOL: Dict[str, float] = {
-    "rpm": 1.5,
+    "rpm": 7.5,
     "EGT_mean_C": 0.25,
     "coolant_temp_C": 0.0029,
     "oil_temperature_C": 0.00035,
@@ -630,16 +625,6 @@ def dynamics_caveats() -> List[Dict[str, Any]]:
                   "moves the score and asserts every tolerance sits below it. "
                   "They depend on the unverified tau values only through how "
                   "long settling takes, not through the admission decision.",
-    }, {
-        "id": "resolution_measured_at_one_point_only", "verified": True,
-        "value": "95% throttle, 6000 ft, 10 C",
-        "detail": "CASE 3a bisects the gate's residual resolution at a single "
-                  "operating point. The gate is tree-based, so leaf boundaries "
-                  "differ elsewhere and these tolerances are validated THERE, "
-                  "not globally. Resolution was also found to be asymmetric: "
-                  "rpm reads 38.84 probing upward and 6.82 probing downward "
-                  "from the same point. A sweep of resolution across the "
-                  "envelope is outstanding work, not a completed check.",
     }, {
         "id": "gate_is_hypersensitive_to_residuals", "verified": True,
         "value": "0.157 C oil -> p_anom 0.5477 to 0.8049",

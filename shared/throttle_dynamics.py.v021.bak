@@ -54,7 +54,7 @@ from shared.stress_sim import (
     _extract,
 )
 
-THROTTLE_DYNAMICS_VERSION = "0.2.4"
+THROTTLE_DYNAMICS_VERSION = "0.2.1"
 FRAME_HZ = 10.0                  # matches RulEngine(frame_hz=10.0)
 
 # fourth outcome, local to this module; stress_sim's three are imported above
@@ -66,33 +66,7 @@ TRANSIENT = "transient"
 # settling, which is why the step profile below must run for at least 5 tau of
 # the slowest channel (oil, 25 s) to show any scored frames after a step.
 THROTTLE_RATE_TOL_PCT_S = 0.5
-SETTLE_FRAC = 0.02          # retained for reporting only, NOT for admission
-
-# Admission is decided on ABSOLUTE residual per channel, not on a fraction of
-# the step. Reason, measured in CASE 3a: the gate is tree-based and healthy
-# residuals sit at ~0, so a split lives very close to zero -- a 0.157 C oil
-# residual moved p_anom from 0.5477 to 0.8049. A fraction-of-step tolerance
-# says something about the lag model; only an absolute tolerance below the
-# gate's own residual resolution guarantees an admitted frame scores what true
-# equilibrium scores. These values are JUDGEMENT, but CASE 3a measures the
-# resolution and asserts each one sits below it.
-# Set to ~0.2 x the resolution MEASURED TWO-SIDED by CASE 3a at 95% throttle,
-# 6000 ft, 10 C: rpm 6.82, EGT 1.373, coolant 0.01455, fuelflow 0.00358,
-# oil_temp 0.00174, oil_press 0.00019. Oil temperature is the binding channel
-# at 1.74 mK -- see caveat admission_cost_on_missions.
-#
-# rpm was originally set from a ONE-SIDED probe that read 38.84; measuring the
-# minus direction as well cut it to 6.82, because the nearest tree split below
-# equilibrium is much closer than the one above. A lagging channel always
-# approaches from one side, so two-sided is the only correct measurement.
-GATE_RESID_TOL: Dict[str, float] = {
-    "rpm": 1.5,
-    "EGT_mean_C": 0.25,
-    "coolant_temp_C": 0.0029,
-    "oil_temperature_C": 0.00035,
-    "fuelflow_kgh": 0.0007,
-    "oil_pressure_bar": 0.000038,
-}
+SETTLE_FRAC = 0.02
 
 # Step profile endpoints. NOTE: the deck was trained on throttle [56.5, 100]
 # only. 40% is STATICALLY outside the envelope, so the twin declines it however
@@ -158,76 +132,14 @@ def _admit(state: Mapping[str, float], target: Mapping[str, float],
         return False, (f"throttle moving {throttle_rate_pct_s:+.1f} %/s "
                        f"(tol {THROTTLE_RATE_TOL_PCT_S} %/s)")
     for k in LAGGED:
-        # span is unused: admission is absolute, see GATE_RESID_TOL.
         gap = abs(float(state[k]) - float(target[k]))
-        tol = float(GATE_RESID_TOL.get(k, 0.0))
+        tol = SETTLE_FRAC * float(span.get(k, 0.0))
         if tol <= 0.0:
-            tol = 1e-9
+            tol = 1e-9          # no step seen yet: demand equilibrium exactly
         if gap > tol:
             return False, (f"{k} is {gap:.3f} from equilibrium "
                            f"(tol {tol:.3f}, tau {TAU_S[k]}s)")
     return True, ""
-
-
-def _score_state(core: Any, op: Mapping, state: Mapping[str, float],
-                 humidity_pct: float = 0.0) -> Optional[float]:
-    """One frame through adapter + twin. None if refused or declined."""
-    from node1_ingestion.adapter import to_twin_payload, twin_frame_to_dict
-    try:
-        payload, provided = _frame_from_state(op, state, humidity_pct)
-    except Exception:
-        return None
-    res = to_twin_payload(payload, provided=provided, strict=False)
-    if not res.ok:
-        return None
-    out = twin_frame_to_dict(core.process(res.features))
-    pa = out.get("anomaly_probability")
-    return None if pa is None else float(pa)
-
-
-def gate_residual_resolution(core: Any, op: Mapping, key: str,
-                             iters: int = 26) -> Tuple[Optional[float],
-                                                       Optional[float]]:
-    """Smallest offset in `key` that moves p_anom off its equilibrium value.
-
-    Direct analogue of stress_sim.gate_resolution_ft, but in residual space.
-    Returns (equilibrium p_anom, resolution). Resolution None means the score
-    never moved, so the channel could not be resolved from this point.
-    """
-    target = _extract(deck().predict(dict(op)))
-    target["rpm"] = float(op["rpm"])
-    base = _score_state(core, op, dict(target))
-    if base is None:
-        return None, None
-    # BOTH directions. A lagging channel approaches equilibrium from below,
-    # so the -offset resolution is the one that governs admission; the nearest
-    # tree split is not symmetric about the equilibrium value.
-    best: Optional[float] = None
-    for sign in (1.0, -1.0):
-        hi = max(abs(float(target[key])) * 0.02, 1e-3)
-        moved = False
-        for _ in range(14):
-            st = dict(target)
-            st[key] = target[key] + sign * hi
-            q = _score_state(core, op, st)
-            if q is None or q != base:
-                moved = True
-                break
-            hi *= 4.0
-        if not moved:
-            continue
-        lo = 0.0
-        for _ in range(iters):
-            mid = 0.5 * (lo + hi)
-            st = dict(target)
-            st[key] = target[key] + sign * mid
-            q = _score_state(core, op, st)
-            if q is None or q != base:
-                hi = mid
-            else:
-                lo = mid
-        best = hi if best is None else min(best, hi)
-    return base, best
 
 
 # --------------------------------------------------------------------------
@@ -240,7 +152,7 @@ def profile_steady(seconds: float = 20.0, throttle_pct: float = 80.0
     return [(i / FRAME_HZ, throttle_pct) for i in range(n)]
 
 
-def profile_step(seconds: float = 360.0, low: float = STEP_LOW_PCT,
+def profile_step(seconds: float = 150.0, low: float = STEP_LOW_PCT,
                  high: float = STEP_HIGH_PCT,
                  step_at_s: float = 15.0) -> List[Tuple[float, float]]:
     """150 s by default: oil has tau=25 s, so 5 tau = 125 s must fit AFTER the
@@ -429,7 +341,7 @@ class Trace:
         if i0 is None:
             return None
         t0 = self.steps[i0].t_s
-        tol = float(GATE_RESID_TOL.get(key, 0.0))
+        tol = SETTLE_FRAC * float(self.span.get(key, 0.0))
         if tol <= 0.0:
             return None
         after = [s for s in self.steps[i0 + 1:] if s.lag_error(key) is not None]
@@ -621,46 +533,14 @@ def dynamics_caveats() -> List[Dict[str, Any]]:
     }, {
         "id": "admission_thresholds_are_judgement", "verified": False,
         "value": {"throttle_rate_pct_s": THROTTLE_RATE_TOL_PCT_S,
-                  "gate_resid_tol": dict(GATE_RESID_TOL)},
+                  "settle_frac_of_step": SETTLE_FRAC},
         "detail": "the steady-state gate uses a throttle rate limit of "
-                  f"{THROTTLE_RATE_TOL_PCT_S} %/s and an absolute residual "
-                  "tolerance per channel. The rate limit is judgement. The "
-                  "residual tolerances are judgement CONSTRAINED by "
-                  "measurement: CASE 3a bisects the smallest residual that "
-                  "moves the score and asserts every tolerance sits below it. "
-                  "They depend on the unverified tau values only through how "
-                  "long settling takes, not through the admission decision.",
-    }, {
-        "id": "resolution_measured_at_one_point_only", "verified": True,
-        "value": "95% throttle, 6000 ft, 10 C",
-        "detail": "CASE 3a bisects the gate's residual resolution at a single "
-                  "operating point. The gate is tree-based, so leaf boundaries "
-                  "differ elsewhere and these tolerances are validated THERE, "
-                  "not globally. Resolution was also found to be asymmetric: "
-                  "rpm reads 38.84 probing upward and 6.82 probing downward "
-                  "from the same point. A sweep of resolution across the "
-                  "envelope is outstanding work, not a completed check.",
-    }, {
-        "id": "gate_is_hypersensitive_to_residuals", "verified": True,
-        "value": "0.157 C oil -> p_anom 0.5477 to 0.8049",
-        "detail": "measured, not assumed. The gate is tree-based and healthy "
-                  "residuals sit at ~0, so a decision boundary lives very "
-                  "close to zero: a sixth of a degree on oil temperature moved "
-                  "p_anom by 0.257. Same phenomenon as the 500 ft altitude "
-                  "leaf width recorded in stress_sim. This is why admission is "
-                  "absolute rather than a fraction of the step, and it is "
-                  "another reason the gate is untrusted pre-retrain.",
-    }, {
-        "id": "admission_cost_on_missions", "verified": True,
-        "value": "~250 s of settling after a throttle step",
-        "detail": "consequence of the two facts above, measured not assumed: "
-                  "oil temperature moves the score at 1.74 mK and has tau=25 s, "
-                  "so closing a ~8 C step to tolerance takes about 250 s. "
-                  "Pre-retrain the twin is therefore honestly a CRUISE-ONLY "
-                  "monitor -- a real mission changing throttle every few "
-                  "minutes will read UNAVAILABLE for most of its duration. "
-                  "That is a property of the untrusted gate, not of the lag "
-                  "model, and retraining on transient data is what fixes it.",
+                  f"{THROTTLE_RATE_TOL_PCT_S} %/s and requires each lagged "
+                  f"channel within {SETTLE_FRAC:.0%} of its own step. Both are "
+                  "engineering judgement, NOT measurement. They are a function "
+                  "of the unverified tau values above, so tightening tau moves "
+                  "the admitted region. Loosening them admits transients the "
+                  "baselines were never trained on.",
     }, {
         "id": "transients_are_not_scored_by_design", "verified": True,
         "value": "TRANSIENT outcome",
@@ -716,9 +596,8 @@ def _self_test() -> None:
     ref = reference_op()
     print(f"  reference op: {ref}")
     print(f"  tau (s): {TAU_S}   [UNVERIFIED]")
-    print(f"  admission: throttle rate <= {THROTTLE_RATE_TOL_PCT_S} %/s, and "
-          f"absolute residual per channel  [JUDGEMENT, bounded by CASE 3a]")
-    print(f"  GATE_RESID_TOL: {GATE_RESID_TOL}")
+    print(f"  admission: throttle rate <= {THROTTLE_RATE_TOL_PCT_S} %/s, "
+          f"each channel within {SETTLE_FRAC:.0%} of its own step  [JUDGEMENT]")
 
     print("\nCASE 0  rpm surrogate is anchored at the deck reference point")
     got = rpm_for_throttle(ref["throttle_pct"])
@@ -744,10 +623,8 @@ def _self_test() -> None:
           f"REGRESSION INVARIANT MOVED: {last.anomaly_probability}")
 
     print("\nCASE 2  reset isolation: the same profile twice must match exactly")
-    a = run_profile(core, profile_steady(20.0, STEP_HIGH_PCT),
-                    name="steady_iso")
-    b = run_profile(core, profile_steady(20.0, STEP_HIGH_PCT),
-                    name="steady_iso")
+    a = run_profile(core, profile_step(), name="step")
+    b = run_profile(core, profile_step(), name="step")
     pa = [x.anomaly_probability for x in a.steps]
     pb = [x.anomaly_probability for x in b.steps]
     oa = [x.outcome for x in a.steps]
@@ -758,9 +635,6 @@ def _self_test() -> None:
           f"{b.summary()['transient']} transient in {b.summary()['elapsed_s']}s")
     check(pa == pb and oa == ob,
           "identical profiles diverged -- state leaked between runs")
-    check(a.summary()["scored"] > 0,
-          "CASE 2 scored nothing, so it compared two lists of None and proved "
-          "nothing about state isolation")
 
     print("\nCASE 3  the finding: a steady-state twin cannot score a transient")
     probe = run_profile(core, profile_step(30.0), name="step_unadmitted",
@@ -778,68 +652,6 @@ def _self_test() -> None:
     check(ps["declined"] > 0 or ps["breaches"] > 0,
           "unadmitted transient neither declined nor breached -- the whole "
           "premise of the admission gate is unsupported, re-read CASE 3")
-
-    print("\nCASE 3a  how big a residual does the gate actually notice?")
-    op_hi = {"altitude_ft": ref["altitude_ft"],
-             "ambient_temperature_C": ref["ambient_temperature_C"],
-             "throttle_pct": STEP_HIGH_PCT,
-             "rpm": rpm_for_throttle(STEP_HIGH_PCT)}
-    suggest: Dict[str, float] = {}
-    unresolved: List[str] = []
-    for k in sorted(LAGGED, key=lambda x: TAU_S[x]):
-        pb, resol = gate_residual_resolution(core, op_hi, k)
-        tol = float(GATE_RESID_TOL.get(k, 0.0))
-        if resol is None:
-            unresolved.append(k)
-            print(f"  {k:<20} resolution   --      admission tol {tol:<8.4f} "
-                  f"(score never moved)")
-            continue
-        suggest[k] = round(0.4 * resol, 6)
-        flag = "" if tol < resol else "   <-- TOO LOOSE"
-        print(f"  {k:<20} resolution {resol:9.5f}  admission tol "
-              f"{tol:<8.4f}{flag}")
-        check(tol < resol,
-              f"{k}: admission tol {tol} >= gate resolution {resol:.5f}, so an "
-              f"admitted frame can score differently from equilibrium")
-    if suggest:
-        print(f"  suggested GATE_RESID_TOL (0.4 x measured): {suggest}")
-    if unresolved:
-        print(f"  unresolved from this point: {unresolved} -- these channels "
-              f"do not move the score at all here, so their tolerance is "
-              f"unconstrained by measurement")
-
-    # How long must a step profile run before anything can be scored again?
-    # Derived, not guessed: first-order lag closes a step to tol in
-    # tau * ln(step/tol). The slowest channel sets the profile length.
-    print("\n  settling cost of these tolerances")
-    op_lo = dict(op_hi, throttle_pct=STEP_LOW_PCT,
-                 rpm=rpm_for_throttle(STEP_LOW_PCT))
-    t_lo = _extract(deck().predict(dict(op_lo)))
-    t_hi = _extract(deck().predict(dict(op_hi)))
-    need = 0.0
-    for k in sorted(LAGGED, key=lambda x: TAU_S[x]):
-        if k == "rpm":
-            stepk = abs(rpm_for_throttle(STEP_HIGH_PCT)
-                        - rpm_for_throttle(STEP_LOW_PCT))
-        else:
-            stepk = abs(float(t_hi[k]) - float(t_lo[k]))
-        tolk = float(GATE_RESID_TOL.get(k, 0.0))
-        if stepk <= 0.0 or tolk <= 0.0 or stepk <= tolk:
-            print(f"  {k:<20} step {stepk:9.3f}  already inside tol")
-            continue
-        ts = TAU_S[k] * math.log(stepk / tolk)
-        need = max(need, ts)
-        print(f"  {k:<20} step {stepk:9.3f}  settles to tol in {ts:7.1f} s "
-              f"(tau {TAU_S[k]}s)")
-    prof = profile_step()
-    have = prof[-1][0] - 15.0
-    print(f"  slowest channel needs {need:.0f} s after the step; profile "
-          f"provides {have:.0f} s")
-    check(have > need,
-          f"step profile gives only {have:.0f} s after the step but the "
-          f"slowest channel needs {need:.0f} s -- nothing can be scored")
-
-    a = run_profile(core, prof, name="step")
 
     # Static baselines. Before attributing any breach to the transient, ask
     # what the twin says at these throttle settings when the engine is
@@ -864,8 +676,7 @@ def _self_test() -> None:
             print(f"  static equilibrium at {pct:.0f}%: p_anom={pv:.4f} "
                   f"margin={GATE_THRESHOLD - pv:+.4f}")
 
-    print(f"  admit=True ({prof[-1][0]:.0f} s): the gate replaces both "
-          f"failure modes")
+    print("  admit=True (150 s): the gate replaces both failure modes")
     s = a.summary()
     print(f"  frames={s['frames']} scored={s['scored']} "
           f"transient={s['transient']} declined={s['declined']} "
@@ -915,11 +726,10 @@ def _self_test() -> None:
         dev = abs(w.anomaly_probability - p_hi)
         print(f"  {len(adm_hi)} admitted frames at {STEP_HIGH_PCT:.0f}%; worst "
               f"deviation from static equilibrium {dev:.6f} at t={w.t_s:.1f}s")
-        check(dev < 1e-12,
+        check(dev < 0.05,
               f"an admitted frame scored {w.anomaly_probability:.4f} where "
-              f"static equilibrium is {p_hi:.4f} (dev {dev:.6f}) -- admission "
-              f"tolerance sits above the gate's residual resolution for some "
-              f"channel; use the suggested GATE_RESID_TOL from CASE 3a")
+              f"static equilibrium is {p_hi:.4f} (dev {dev:.4f}) -- the gate "
+              f"is passing frames the twin still sees as transient")
     if p_hi is not None and p_hi >= GATE_THRESHOLD:
         print(f"  NOTE: static equilibrium at {STEP_HIGH_PCT:.0f}% already "
               f"breaches (p_anom={p_hi:.4f} vs gate {GATE_THRESHOLD}). The "
