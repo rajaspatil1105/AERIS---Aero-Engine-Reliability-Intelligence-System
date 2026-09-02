@@ -2,8 +2,8 @@
 import datetime, importlib, pathlib
 
 SOURCES = [
-    ("node1_ingestion.adapter",  "adapter_caveats",      "Node 1 ingestion adapter - unverified assumptions"),
-    ("node1_ingestion.adapter",  "adapter_declarations", "Node 1 ingestion adapter - verified declarations"),
+    ("node1_ingestion.adapter",  "adapter_caveats",      "Node 1 ingestion adapter - input assumptions"),
+    ("node1_ingestion.adapter",  "adapter_declarations", "Node 1 ingestion adapter - scope declarations"),
     ("shared.atmosphere",        "atmosphere_caveats",   "Shared - atmosphere / density altitude"),
     ("shared.stress_sim",        "stress_caveats",       "Shared - envelope stress sweep"),
     ("shared.throttle_dynamics", "dynamics_caveats",     "Shared - throttle dynamics / admission gate"),

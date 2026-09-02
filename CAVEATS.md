@@ -1,8 +1,8 @@
 # AERIS - declared caveats
 
-Generated 2026-09-02 18:21 by make_caveats.py. Do not edit by hand.
+Generated 2026-09-02 21:17 by make_caveats.py. Do not edit by hand.
 
-## Node 1 ingestion adapter - unverified assumptions
+## Node 1 ingestion adapter - input assumptions
 
 Source: `node1_ingestion.adapter.adapter_caveats()`
 
@@ -18,7 +18,7 @@ Source: `node1_ingestion.adapter.adapter_caveats()`
 - **affects**: ['coolant_temp_C', 'delta_coolant_temp_C']
 - **detail**: UNVERIFIED. The schema exposes coolant_temp_in_c and coolant_temp_out_c; coolant_temp_C_baseline.pkl was trained on ONE unlabelled coolant channel. Outlet is selected because it is the conventional single-point coolant reading and it is the hotter of the two, matching the manifest's observed healthy output range. Selecting the wrong channel biases every coolant residual by the engine's coolant delta-T.
 
-## Node 1 ingestion adapter - verified declarations
+## Node 1 ingestion adapter - scope declarations
 
 Source: `node1_ingestion.adapter.adapter_declarations()`
 
