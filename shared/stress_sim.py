@@ -487,11 +487,38 @@ def stress_caveats() -> List[Dict[str, Any]]:
                   "maps model competence, it does NOT simulate degradation.",
     }, {
         "id": "two_disagreeing_envelopes", "verified": False,
-        "value": "deck vs dataset percentiles",
-        "detail": "BaselineDeck.check_envelope reports an OAT ceiling near "
-                  "30 C; the 3.12M-row scan of master_dataset.csv gives "
-                  "34.351 C. Both are reported per cell; neither is silently "
-                  "preferred. The deck config is the stricter authority.",
+        "value": {"dataset_oat_c": [-28.325, 34.351],
+                  "deck_oat_c": [-27.9845, 30.0],
+                  "residual_calc_alt_ft": [0.0, 21709.3],
+                  "deck_throttle_pct": [56.5, 100.0]},
+        "detail": "FOUR competence boundaries, not two, each read directly "
+                  "from code or config and none of them agreeing. The 3.12M-row "
+                  "scan of master_dataset.csv gives OAT [-28.325, 34.351] C. "
+                  "BaselineDeck.check_envelope enforces OAT [-27.9845, 30] C, "
+                  "which is the binding ceiling. residual_calc enforces "
+                  "altitude [0, 21709.3] ft against the dataset's 21881.3. And "
+                  "the deck also enforces throttle [56.5, 100] %, discovered "
+                  "while testing transients -- so idle and low cruise cannot be "
+                  "scored at all, however steady they are. All four are "
+                  "reported; none is averaged away or silently preferred. What "
+                  "stays UNVERIFIED is which authority is right for a real "
+                  "engine: the dataset is ~70% faithful, so a boundary being "
+                  "stricter is not the same as it being correct.",
+    }, {
+        "id": "gate_resolution_is_leaf_local", "verified": True,
+        "value": "leaf boundary, not a global step",
+        "detail": "gate_resolution_ft() finds the smallest ALTITUDE step that "
+                  "moves p_anom from the reference point and reports about "
+                  "500 ft. That number is a property of ONE leaf boundary in a "
+                  "tree ensemble, not a global sensitivity floor, and it must "
+                  "not be read as one. fault_injection measured the same effect "
+                  "per channel and found it non-monotonic: a coolant offset of "
+                  "0.0383 C crosses the 0.65 gate while -10 C scores 0.5965 and "
+                  "does not; rpm crosses at +88.96 while +250 does not; oil "
+                  "pressure never crosses by bisection despite a measured "
+                  "residual resolution of 0.00019 bar. So a null result from a "
+                  "small perturbation means 'this landed inside a leaf', never "
+                  "'the model is insensitive to this'.",
     }, {
         "id": "cold_days_are_extrapolation_by_construction", "verified": True,
         "value": 0.0,
@@ -583,12 +610,16 @@ def _self_test() -> None:
     print(f"  dry  DA shift {dry.da_shift_ft:+7.0f} ft  {dry.outcome} p_anom={dry.p()}")
     print(f"  100% DA shift {wet.da_shift_ft:+7.0f} ft  {wet.outcome} p_anom={wet.p()}")
     pen = wet.humidity_penalty_ft
-    print(f"  humidity penalty {pen:+.0f} ft vs gate resolution {first} ft")
+    print(f"  humidity penalty {pen:+.0f} ft vs the {first} ft step measured "
+          f"at the reference point")
     if dry.scored and wet.scored:
         moved = wet.margin_to_gate - dry.margin_to_gate
         print(f"  margin moved {moved:+.6f}")
         if moved == 0.0 and first is not None and pen < first:
-            print("  -> BELOW GATE RESOLUTION: honest null result, not a bug")
+            print("  -> INSIDE ONE LEAF: honest null result, not a bug. NOTE "
+                  "this is leaf-local,")
+            print("     not a global resolution -- the gate is non-monotonic, "
+                  "see caveat gate_resolution_is_leaf_local")
     check(wet.da_shift_ft > dry.da_shift_ft, "humidity did not raise DA")
 
     print("\nCASE 7  cold air, negative DA, and the -6000 ft floor")
