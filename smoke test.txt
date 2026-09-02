@@ -1,0 +1,10 @@
+# terminal 1
+Set-Location "C:\Users\patil\OneDrive\Desktop\AERIS---Aero-Engine-Reliability-Intelligence-System"
+$env:AERIS_DB="C:\aeris_data\aeris.db"; $env:AERIS_EXPLAIN="1"
+C:\venvs\aeris_verify\Scripts\python.exe -m uvicorn node3_service.ingest:app --port 8000
+
+# terminal 2, once terminal 1 says "Application startup complete"
+Set-Location "C:\Users\patil\OneDrive\Desktop\AERIS---Aero-Engine-Reliability-Intelligence-System"
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/sessions -ContentType "application/json" -Body '{"note":"post-restructure verification"}'
+C:\venvs\aeris_verify\Scripts\python.exe demo_ramp.py
+Invoke-RestMethod http://127.0.0.1:8000/summary | ConvertTo-Json -Depth 3
