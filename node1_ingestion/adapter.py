@@ -110,6 +110,14 @@ SOURCE_FIELDS: Dict[str, Tuple[str, ...]] = {
 
 # Mirrors PHYSICAL_BOUNDS in node3_service/api.py. Kept as a local copy so the
 # adapter can refuse before the HTTP layer is involved.
+# Density altitude is a DIFFERENT quantity from geometric altitude and has a
+# legitimately wider negative range: a cold day at sea level yields roughly
+# -4500 ft DA, and cold_start reaches -5191 ft. The geometric floor of
+# -1500 ft (Dead Sea) would refuse those as impossible. They are not
+# impossible, they are merely unseen -- extrapolation, which the caller
+# reports, not a refusal.
+DENSITY_ALT_FLOOR_FT = -6000.0
+
 TWIN_BOUNDS: Dict[str, Tuple[float, float]] = {
     "altitude_ft":           (-1500.0, 60000.0),
     "ambient_temperature_C": (-90.0, 70.0),
@@ -163,7 +171,7 @@ class AdapterResult:
         }
 
 
-def adapter_caveats() -> List[Dict[str, Any]]:
+def _all_caveats() -> List[Dict[str, Any]]:
     """Machine-readable assumption list for /caveats and the GCS banner."""
     return [
         {
@@ -173,6 +181,26 @@ def adapter_caveats() -> List[Dict[str, Any]]:
             "unit": "kg/L",
             "affects": ["fuelflow_kgh", "delta_fuelflow_kgh"],
             "detail": FUEL_DENSITY_PROVENANCE,
+        },
+        {
+            "id": "density_altitude_floor",
+            "verified": True,
+            "value": DENSITY_ALT_FLOOR_FT,
+            "unit": "ft",
+            "affects": ["altitude_ft"],
+            "detail": ("applies only when altitude_is_density=True; the "
+                       "geometric floor of -1500 ft is unchanged"),
+        },
+        {
+            "id": "training_data_fidelity",
+            "verified": False,
+            "value": "~70%",
+            "unit": None,
+            "affects": ["all model output"],
+            "detail": ("the Cantera generator was built from limited public "
+                       "Rotax 915 iS data; the dataset is estimated ~70% "
+                       "faithful to a real engine. AERIS demonstrates the "
+                       "detection architecture, not certified thresholds"),
         },
         {
             "id": "coolant_channel_assumed",
@@ -185,6 +213,23 @@ def adapter_caveats() -> List[Dict[str, Any]]:
     ]
 
 
+# An ASSUMPTION silently changes a number on its way to the twin, so it can
+# never be verified=True.  The count is part of the published contract and is
+# asserted by node3_service.canonical.  A DECLARATION states a limitation but
+# alters no number, and may legitimately be verified=True.
+ASSUMPTION_IDS: tuple = ("fuel_density_assumed", "coolant_channel_assumed")
+
+
+def adapter_caveats() -> List[Dict[str, Any]]:
+    """The numeric substitutions only.  Always exactly ASSUMPTION_IDS."""
+    return [c for c in _all_caveats() if c["id"] in ASSUMPTION_IDS]
+
+
+def adapter_declarations() -> List[Dict[str, Any]]:
+    """Stated limitations that alter no value (fidelity, DA floor, envelope)."""
+    return [c for c in _all_caveats() if c["id"] not in ASSUMPTION_IDS]
+
+
 def _egt_mean_and_spread(p: TelemetryPayload) -> Tuple[float, float]:
     vals = [p.egt_1_c, p.egt_2_c, p.egt_3_c, p.egt_4_c]
     return sum(vals) / 4.0, max(vals) - min(vals)
@@ -192,6 +237,7 @@ def _egt_mean_and_spread(p: TelemetryPayload) -> Tuple[float, float]:
 
 def to_twin_payload(
     payload: TelemetryPayload,
+    altitude_is_density: bool = False,
     provided: Optional[Iterable[str]] = None,
     strict: bool = True,
 ) -> AdapterResult:
@@ -253,6 +299,8 @@ def to_twin_payload(
             refusals.append(f"{name}: non-finite after conversion ({val!r})")
             continue
         lo, hi = TWIN_BOUNDS[name]
+        if name == "altitude_ft" and altitude_is_density:
+            lo = DENSITY_ALT_FLOOR_FT
         if not (lo <= val <= hi):
             refusals.append(
                 f"{name}={val:.6g} outside physically possible [{lo}, {hi}]"
@@ -514,6 +562,12 @@ def _self_test() -> None:
         print(f"  {c['id']:26} verified={c['verified']} value={c['value']}")
     check(len(cav) == 2, "expected two declared assumptions")
     check(all(not c["verified"] for c in cav), "an assumption is marked verified")
+
+    dec = adapter_declarations()
+    print("\nCASE 9b  declared limitations (these alter no number)")
+    for d in dec:
+        print(f"  {d['id']:26} verified={d['verified']} value={d['value']}")
+    check(len(dec) >= 2, "declarations not surfaced")
     check(len(r.assumptions) == 2, "result did not carry assumptions")
 
     # -- CASE 10: end-to-end through the twin ------------------------- #

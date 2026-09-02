@@ -1,0 +1,58 @@
+{
+  "dataset_file": "master_dataset.csv",
+  "dataset_bytes": 2899457668,
+  "fingerprint_sha256": "b39ae5203ea2905c365186dd1dc7d0bb07d5bb469f9277635a1dbe9a72e6a120",
+  "fingerprint_method": "sha256(first 8MB + last 8MB + size) -- NOT full file",
+  "rows_total": 3121218,
+  "rows_calibrated": 3121218,
+  "rows_flagged_outside_envelope": 0,
+  "altitude_is_geometric": true,
+  "altitude_conversion_max_err": 0.0017762672214303166,
+  "ranges": {
+    "altitude_ft": [
+      0.0,
+      21881.26953125
+    ],
+    "altitude_m": [
+      0.0,
+      6669.41064453125
+    ],
+    "ambient_temperature_C": [
+      -28.324913024902344,
+      34.35065460205078
+    ],
+    "ambient_pressure_hPa": [
+      430.07855224609375,
+      1013.25
+    ],
+    "altitude_ft__calibrated": [
+      0.0,
+      21881.26953125
+    ],
+    "ambient_temperature_C__calibrated": [
+      -28.324913024902344,
+      34.35065460205078
+    ]
+  },
+  "percentiles_calibrated": {
+    "altitude_ft": {
+      "p0.1": 0.0,
+      "p1": 2.0707972049713135,
+      "p5": 393.58685302734375,
+      "p50": 6055.595703125,
+      "p95": 18085.05859375,
+      "p99": 20346.421875,
+      "p99.9": 21422.669921875
+    },
+    "ambient_temperature_C": {
+      "p0.1": -27.362625122070312,
+      "p1": -25.22036361694336,
+      "p5": -20.883304595947266,
+      "p50": 8.508224487304688,
+      "p95": 27.9661922454834,
+      "p99": 29.77227020263672,
+      "p99.9": 32.316123962402344
+    }
+  },
+  "scanned_utc": "2026-09-02T07:13:52Z"
+}

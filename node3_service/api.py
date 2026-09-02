@@ -74,6 +74,11 @@ def _json_safe(obj: Any) -> Any:
 # Physical possibility bounds -- NOT the training envelope (which is much
 # narrower and enforced separately by physics_deck). A value inside these
 # bounds may still be abnormal; a value outside means the sensor is broken.
+# Mirrors TWIN_BOUNDS in node1_ingestion/adapter.py. Keep both in sync.
+# The density-altitude floor lives there too; scenario frames carrying
+# density altitude must be validated with altitude_is_density=True.
+DENSITY_ALT_FLOOR_FT = -6000.0
+
 PHYSICAL_BOUNDS: dict[str, tuple[float, float]] = {
     "altitude_ft":           (-1500.0, 60000.0),   # Dead Sea to above ceiling
     "ambient_temperature_C": (-90.0, 70.0),        # Vostok to Death Valley

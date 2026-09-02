@@ -59,6 +59,7 @@ from node1_ingestion.adapter import (  # noqa: E402
     ADAPTER_VERSION,
     AdapterError,
     adapter_caveats,
+    adapter_declarations,
     to_twin_payload,
     twin_frame_to_dict,
 )
@@ -112,6 +113,7 @@ class CanonicalState:
                 "samples": len(lat),
             },
             "assumptions": adapter_caveats(),
+            "declarations": adapter_declarations(),
         }
 
 
