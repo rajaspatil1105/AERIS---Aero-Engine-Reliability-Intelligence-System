@@ -1,0 +1,37 @@
+# AERIS -- Aero Engine Reliability Intelligence System
+# Python 3.11 (tested on 3.11.x, Windows)
+#
+#   python -m venv C:\venvs\aeris
+#   C:\venvs\aeris\Scripts\Activate.ps1
+#   pip install -r requirements.txt
+#
+# scikit-learn is PINNED. The model artifacts in models/ were pickled with
+# 1.9.0; loading them under a different minor version may silently alter
+# predictions or fail outright. manifest.py records the build version.
+
+# ---- model runtime ----
+scikit-learn==1.9.0
+numpy>=1.26,<3
+scipy>=1.11
+joblib>=1.3
+pandas>=2.0            # imported by sklearn.utils.fixes on this version
+
+# ---- explainability ----
+shap>=0.44             # TreeExplainer (gate) + Permutation (multiclass)
+matplotlib>=3.7        # shap.plots pulls this in
+
+# ---- service (Node 3) ----
+fastapi==0.115.2
+uvicorn[standard]==0.30.6
+pydantic>=2.7,<3
+websockets>=12         # WS client for the simulator / --simulate feed
+
+# ---- testing ----
+httpx==0.28.1          # required by fastapi.testclient (api.py self-test)
+
+# ---- notes ----
+# sqlite3 is stdlib; no ORM is used.
+# onnxruntime is NOT a dependency: TreeExplainer needs the live sklearn
+# objects, so the ONNX export path was dropped.
+# cantera is NOT listed: the simulator that generated the training data is a
+# separate component and is not imported by this pipeline.

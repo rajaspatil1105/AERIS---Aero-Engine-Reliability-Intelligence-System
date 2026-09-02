@@ -1,0 +1,58 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- virtual environments ----
+.venv/
+venv/
+env/
+# the project venv lives outside the tree at C:\venvs\aeris
+
+# ---- secrets / local config ----
+.env
+.env.local
+*.local.json
+
+# ---- runtime data (never commit a database) ----
+# SQLite + WAL files are machine-local and corrupt easily in sync folders.
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ---- diagnostic + scratch output ----
+identify_output.txt
+diag_*.txt
+profile_frame*.txt
+*.log
+
+# scratch scripts: one-shot diagnostics, regenerate if needed
+diag_*.py
+patch_*.py
+resolve_labels*.py
+demo_ramp.py
+
+# ---- editors / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- NOT ignored, deliberately ----
+# models/*.pkl              model artifacts are committed: manifest.py
+#                           verifies their sha256 and refuses to start on a
+#                           mismatch, so a clone without them cannot run.
+#                           Switch to Git LFS if they exceed ~50 MB.
+# models/model_manifest.json  the model contract. Must be version-controlled.
+# reconstruction_config.json  feature schema, validated at startup.
+# models/classifier/feature_names.json

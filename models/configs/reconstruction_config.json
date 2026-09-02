@@ -1,0 +1,176 @@
+{
+  "phase": "Reconstructed Physics-Informed Pipeline",
+  "version": "1.0-optimized",
+  "timestamp": "2026-09-01T16:17:34.325299",
+  "model_type": "GradientBoostingClassifier + RandomForest Baseline",
+  "feature_count": 14,
+  "feature_schema": [
+    "altitude_ft",
+    "ambient_temperature_C",
+    "throttle_pct",
+    "rpm",
+    "fuelflow_kgh",
+    "coolant_temp_C",
+    "EGT_mean_C",
+    "oil_pressure_bar",
+    "oil_temperature_C",
+    "delta_EGT_mean_C",
+    "delta_coolant_temp_C",
+    "delta_oil_pressure_bar",
+    "delta_oil_temperature_C",
+    "delta_fuelflow_kgh"
+  ],
+  "confidence_threshold": 0.65,
+  "anomaly_gate_performance": {
+    "accuracy": 0.5285775325972474,
+    "precision": 0.511013028961261,
+    "recall": 0.9981575247297749,
+    "f1": 0.6759626986428218
+  },
+  "rul_performance": {
+    "mae": 107.26034603962889,
+    "rmse": 119.96802292292064,
+    "r2": -0.1032638286775156
+  },
+  "physical_outputs": [
+    "EGT_mean_C",
+    "coolant_temp_C",
+    "oil_pressure_bar",
+    "oil_temperature_C",
+    "fuelflow_kgh"
+  ],
+  "operating_coordinates": [
+    "rpm",
+    "throttle_pct",
+    "altitude_ft",
+    "ambient_temperature_C"
+  ],
+  "baseline_stats": {
+    "EGT_mean_C": {
+      "rows_used": 50000,
+      "mean": 438.8081408280788,
+      "std": 75.91306867341235,
+      "min": 363.5408473916362,
+      "max": 664.0765245382488,
+      "operating_range": {
+        "rpm": [
+          3000.0,
+          5800.0
+        ],
+        "throttle_pct": [
+          56.5,
+          100.0
+        ],
+        "altitude_ft": [
+          0.0,
+          21709.34086551268
+        ],
+        "ambient_temperature_C": [
+          -27.98449491371509,
+          30.0
+        ]
+      }
+    },
+    "coolant_temp_C": {
+      "rows_used": 50000,
+      "mean": 66.61334182213413,
+      "std": 6.38090424333675,
+      "min": 62.25749733707422,
+      "max": 87.43467389785742,
+      "operating_range": {
+        "rpm": [
+          3000.0,
+          5800.0
+        ],
+        "throttle_pct": [
+          56.5,
+          100.0
+        ],
+        "altitude_ft": [
+          0.0,
+          21709.34086551268
+        ],
+        "ambient_temperature_C": [
+          -27.98449491371509,
+          30.0
+        ]
+      }
+    },
+    "oil_pressure_bar": {
+      "rows_used": 50000,
+      "mean": 2.968516510108182,
+      "std": 0.4929922983322057,
+      "min": 2.198164289496275,
+      "max": 4.254879790987518,
+      "operating_range": {
+        "rpm": [
+          3000.0,
+          5800.0
+        ],
+        "throttle_pct": [
+          56.5,
+          100.0
+        ],
+        "altitude_ft": [
+          0.0,
+          21709.34086551268
+        ],
+        "ambient_temperature_C": [
+          -27.98449491371509,
+          30.0
+        ]
+      }
+    },
+    "oil_temperature_C": {
+      "rows_used": 50000,
+      "mean": 70.91044781019401,
+      "std": 3.398781322356886,
+      "min": 66.6046812505,
+      "max": 82.56201114314023,
+      "operating_range": {
+        "rpm": [
+          3000.0,
+          5800.0
+        ],
+        "throttle_pct": [
+          56.5,
+          100.0
+        ],
+        "altitude_ft": [
+          0.0,
+          21709.34086551268
+        ],
+        "ambient_temperature_C": [
+          -27.98449491371509,
+          30.0
+        ]
+      }
+    },
+    "fuelflow_kgh": {
+      "rows_used": 50000,
+      "mean": 9.840303790950948,
+      "std": 7.567116136285472,
+      "min": 4.332069236736595,
+      "max": 34.01803298430443,
+      "operating_range": {
+        "rpm": [
+          3000.0,
+          5800.0
+        ],
+        "throttle_pct": [
+          56.5,
+          100.0
+        ],
+        "altitude_ft": [
+          0.0,
+          21709.34086551268
+        ],
+        "ambient_temperature_C": [
+          -27.98449491371509,
+          30.0
+        ]
+      }
+    }
+  },
+  "optimization": "RandomForest baseline with 50K downsampled training data"
+}

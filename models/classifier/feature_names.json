@@ -1,0 +1,16 @@
+{
+  "0": "altitude_ft",
+  "1": "ambient_temperature_C",
+  "2": "throttle_pct",
+  "3": "rpm",
+  "4": "fuelflow_kgh",
+  "5": "coolant_temp_C",
+  "6": "EGT_mean_C",
+  "7": "oil_pressure_bar",
+  "8": "oil_temperature_C",
+  "9": "delta_EGT_mean_C",
+  "10": "delta_coolant_temp_C",
+  "11": "delta_oil_pressure_bar",
+  "12": "delta_oil_temperature_C",
+  "13": "delta_fuelflow_kgh"
+}

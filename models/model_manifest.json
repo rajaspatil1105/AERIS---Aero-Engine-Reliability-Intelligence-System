@@ -1,0 +1,400 @@
+{
+  "schema_version": "1.0",
+  "generated_at_utc": "2026-09-01T22:58:49+00:00",
+  "sklearn_version_at_build": "1.9.0",
+  "data_provenance": {
+    "source": "Cantera simulation, synthetic",
+    "measured_engine_data": false,
+    "note": "no artifact trained on this data may be presented as a validated engine model; all outputs are pipeline demonstrations."
+  },
+  "baseline_input_order": [
+    "rpm",
+    "throttle_pct",
+    "altitude_ft",
+    "ambient_temperature_C"
+  ],
+  "feature_order": [
+    "altitude_ft",
+    "ambient_temperature_C",
+    "throttle_pct",
+    "rpm",
+    "fuelflow_kgh",
+    "coolant_temp_C",
+    "EGT_mean_C",
+    "oil_pressure_bar",
+    "oil_temperature_C",
+    "delta_EGT_mean_C",
+    "delta_coolant_temp_C",
+    "delta_oil_pressure_bar",
+    "delta_oil_temperature_C",
+    "delta_fuelflow_kgh"
+  ],
+  "training_envelope": {
+    "rpm": [
+      3000.0,
+      5800.0
+    ],
+    "throttle_pct": [
+      56.5,
+      100.0
+    ],
+    "altitude_ft": [
+      0.0,
+      21709.3
+    ],
+    "ambient_temperature_C": [
+      -27.9845,
+      30.0
+    ]
+  },
+  "safety_limits": {
+    "oil_pressure_bar": {
+      "min": 1.0
+    },
+    "coolant_temp_C": {
+      "max": 120.0
+    },
+    "EGT_mean_C": {
+      "max": 950.0
+    }
+  },
+  "explainability": {
+    "gate": "shap.TreeExplainer (exact)",
+    "fault_classifier": "shap.explainers.Permutation",
+    "note": "TreeExplainer rejects multiclass GradientBoostingClassifier. Retrain as HistGradientBoosting / RandomForest / XGBoost to enable exact multiclass tree attribution."
+  },
+  "open_issues": [
+    "gate performance is at chance (F1 0.676 == trivial baseline)",
+    "multiclass label map recovered by experiment, not read from training code",
+    "training script advertises a 6-label encoder; the artifact has 5 classes",
+    "class 'fuel_pressure_dev' is unreachable",
+    "RUL R2 is negative and its units are unknown"
+  ],
+  "required_from_next_training_run": [
+    "feature_order: exact list of column names in matrix order",
+    "label_map: {int: name} taken from LabelEncoder.classes_",
+    "target_units: units of the RUL target",
+    "training_envelope: min/max of every operating coordinate",
+    "training_scope: which rows each model saw",
+    "metrics: held-out precision/recall/f1 per class, r2/mae for RUL",
+    "data_provenance: simulated or measured, dataset hash"
+  ],
+  "artifacts": [
+    {
+      "filename": "coolant_temp_C_baseline.pkl",
+      "relpath": "baseline/coolant_temp_C_baseline.pkl",
+      "size_bytes": 6620465,
+      "sha256": "6efa22a620769757afc3827dd191c26ac1749dd0596164e0e1e11005f9d2b139",
+      "observed": {
+        "python_class": "RandomForestRegressor",
+        "module": "sklearn.ensemble._forest",
+        "has_feature_names_in_": false,
+        "n_features_in_": 4,
+        "n_estimators": 50,
+        "max_depth": 10
+      },
+      "declared": {
+        "role": "baseline_regressor",
+        "target": "coolant_temp_C",
+        "input_order": [
+          "rpm",
+          "throttle_pct",
+          "altitude_ft",
+          "ambient_temperature_C"
+        ],
+        "input_order_provenance": "recovered_by_experiment (identify_feature_order.py + throttle sweep)",
+        "training_scope": "healthy-only rows (fault_type == 'healthy'), 50000 samples",
+        "training_scope_provenance": "training_pipeline",
+        "output_range_observed_healthy": [
+          62.257,
+          87.435
+        ],
+        "trusted": true,
+        "caveat": "healthy-only fit; residuals are meaningless outside the training envelope"
+      }
+    },
+    {
+      "filename": "EGT_mean_C_baseline.pkl",
+      "relpath": "baseline/EGT_mean_C_baseline.pkl",
+      "size_bytes": 6573665,
+      "sha256": "54d183ad8333debf63d575093b7ab97181ac934c2a532fc8cf7d77fac900925b",
+      "observed": {
+        "python_class": "RandomForestRegressor",
+        "module": "sklearn.ensemble._forest",
+        "has_feature_names_in_": false,
+        "n_features_in_": 4,
+        "n_estimators": 50,
+        "max_depth": 10
+      },
+      "declared": {
+        "role": "baseline_regressor",
+        "target": "EGT_mean_C",
+        "input_order": [
+          "rpm",
+          "throttle_pct",
+          "altitude_ft",
+          "ambient_temperature_C"
+        ],
+        "input_order_provenance": "recovered_by_experiment (identify_feature_order.py + throttle sweep)",
+        "training_scope": "healthy-only rows (fault_type == 'healthy'), 50000 samples",
+        "training_scope_provenance": "training_pipeline",
+        "output_range_observed_healthy": [
+          363.541,
+          664.077
+        ],
+        "trusted": true,
+        "caveat": "healthy-only fit; residuals are meaningless outside the training envelope"
+      }
+    },
+    {
+      "filename": "fuelflow_kgh_baseline.pkl",
+      "relpath": "baseline/fuelflow_kgh_baseline.pkl",
+      "size_bytes": 6179105,
+      "sha256": "45c26cb002b489664889bab4f2d917fb4ce7793930aa060d955fe338a3824977",
+      "observed": {
+        "python_class": "RandomForestRegressor",
+        "module": "sklearn.ensemble._forest",
+        "has_feature_names_in_": false,
+        "n_features_in_": 4,
+        "n_estimators": 50,
+        "max_depth": 10
+      },
+      "declared": {
+        "role": "baseline_regressor",
+        "target": "fuelflow_kgh",
+        "input_order": [
+          "rpm",
+          "throttle_pct",
+          "altitude_ft",
+          "ambient_temperature_C"
+        ],
+        "input_order_provenance": "recovered_by_experiment (identify_feature_order.py + throttle sweep)",
+        "training_scope": "healthy-only rows (fault_type == 'healthy'), 50000 samples",
+        "training_scope_provenance": "training_pipeline",
+        "output_range_observed_healthy": [
+          4.332,
+          34.018
+        ],
+        "trusted": true,
+        "caveat": "healthy-only fit; residuals are meaningless outside the training envelope"
+      }
+    },
+    {
+      "filename": "oil_pressure_bar_baseline.pkl",
+      "relpath": "baseline/oil_pressure_bar_baseline.pkl",
+      "size_bytes": 7074353,
+      "sha256": "9b63670fa45ff7eb11c51bf0d7d26862758a924461f154909e652e88f049a2f7",
+      "observed": {
+        "python_class": "RandomForestRegressor",
+        "module": "sklearn.ensemble._forest",
+        "has_feature_names_in_": false,
+        "n_features_in_": 4,
+        "n_estimators": 50,
+        "max_depth": 10
+      },
+      "declared": {
+        "role": "baseline_regressor",
+        "target": "oil_pressure_bar",
+        "input_order": [
+          "rpm",
+          "throttle_pct",
+          "altitude_ft",
+          "ambient_temperature_C"
+        ],
+        "input_order_provenance": "recovered_by_experiment (identify_feature_order.py + throttle sweep)",
+        "training_scope": "healthy-only rows (fault_type == 'healthy'), 50000 samples",
+        "training_scope_provenance": "training_pipeline",
+        "output_range_observed_healthy": [
+          2.198,
+          4.255
+        ],
+        "trusted": true,
+        "caveat": "healthy-only fit; residuals are meaningless outside the training envelope"
+      }
+    },
+    {
+      "filename": "oil_temperature_C_baseline.pkl",
+      "relpath": "baseline/oil_temperature_C_baseline.pkl",
+      "size_bytes": 6571937,
+      "sha256": "0fe190d924078a5ec3f45226b1646addc37e7758a65c4ab4191afa1b6eb3e3cf",
+      "observed": {
+        "python_class": "RandomForestRegressor",
+        "module": "sklearn.ensemble._forest",
+        "has_feature_names_in_": false,
+        "n_features_in_": 4,
+        "n_estimators": 50,
+        "max_depth": 10
+      },
+      "declared": {
+        "role": "baseline_regressor",
+        "target": "oil_temperature_C",
+        "input_order": [
+          "rpm",
+          "throttle_pct",
+          "altitude_ft",
+          "ambient_temperature_C"
+        ],
+        "input_order_provenance": "recovered_by_experiment (identify_feature_order.py + throttle sweep)",
+        "training_scope": "healthy-only rows (fault_type == 'healthy'), 50000 samples",
+        "training_scope_provenance": "training_pipeline",
+        "output_range_observed_healthy": [
+          66.605,
+          82.562
+        ],
+        "trusted": true,
+        "caveat": "healthy-only fit; residuals are meaningless outside the training envelope"
+      }
+    },
+    {
+      "filename": "fault_classifier.pkl",
+      "relpath": "classifier/fault_classifier.pkl",
+      "size_bytes": 78280,
+      "sha256": "2499b3a7f3e226050edf9379609cabaeaba681136892b821bbd5c95e38420748",
+      "observed": {
+        "python_class": "GradientBoostingClassifier",
+        "module": "sklearn.ensemble._gb",
+        "has_feature_names_in_": false,
+        "n_features_in_": 14,
+        "n_estimators": 50,
+        "max_depth": 3,
+        "n_classes_": 2,
+        "classes_": [
+          0,
+          1
+        ],
+        "classes_dtype": "int64"
+      },
+      "declared": {
+        "role": "anomaly_gate",
+        "input_order": [
+          "altitude_ft",
+          "ambient_temperature_C",
+          "throttle_pct",
+          "rpm",
+          "fuelflow_kgh",
+          "coolant_temp_C",
+          "EGT_mean_C",
+          "oil_pressure_bar",
+          "oil_temperature_C",
+          "delta_EGT_mean_C",
+          "delta_coolant_temp_C",
+          "delta_oil_pressure_bar",
+          "delta_oil_temperature_C",
+          "delta_fuelflow_kgh"
+        ],
+        "input_order_provenance": "config file + feature_names.json (14/14 validated)",
+        "anomaly_class": 1,
+        "decision_threshold": 0.65,
+        "metrics": {
+          "precision": 0.511,
+          "recall": 0.998,
+          "f1": 0.676,
+          "accuracy": 0.5286,
+          "positive_class_prior": 0.511
+        },
+        "metrics_provenance": "training_pipeline",
+        "trusted": false,
+        "caveat": "F1 equals the trivial always-positive baseline; output is near chance. Disabled as a sole decision source; retrain on the multiclass matrix with labels collapsed to healthy / not-healthy."
+      }
+    },
+    {
+      "filename": "fault_classifier_multiclass.pkl",
+      "relpath": "classifier/fault_classifier_multiclass.pkl",
+      "size_bytes": 331672,
+      "sha256": "15cb2eb328917550f1652dd909ca02d062b396f9f47221ee332727c808fc5685",
+      "observed": {
+        "python_class": "GradientBoostingClassifier",
+        "module": "sklearn.ensemble._gb",
+        "has_feature_names_in_": false,
+        "n_features_in_": 14,
+        "n_estimators": 50,
+        "max_depth": 3,
+        "n_classes_": 5,
+        "classes_": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "classes_dtype": "int64"
+      },
+      "declared": {
+        "role": "fault_classifier",
+        "input_order": [
+          "altitude_ft",
+          "ambient_temperature_C",
+          "throttle_pct",
+          "rpm",
+          "fuelflow_kgh",
+          "coolant_temp_C",
+          "EGT_mean_C",
+          "oil_pressure_bar",
+          "oil_temperature_C",
+          "delta_EGT_mean_C",
+          "delta_coolant_temp_C",
+          "delta_oil_pressure_bar",
+          "delta_oil_temperature_C",
+          "delta_fuelflow_kgh"
+        ],
+        "input_order_provenance": "config file + feature_names.json (14/14 validated)",
+        "label_map": {
+          "0": "cooling_degradation",
+          "1": "fuel_pressure_dev",
+          "2": "lubrication_degradation",
+          "3": "misfire",
+          "4": "sensor_drift"
+        },
+        "label_map_provenance": "recovered_by_experiment (resolve_labels2.py directional sweep)",
+        "dead_classes": [
+          "fuel_pressure_dev"
+        ],
+        "trusted": false,
+        "caveat": "label map inferred, not read from training code; class 'fuel_pressure_dev' is never argmax for any fuel-flow excursion; responses saturate at the first offset step so severity is not resolved."
+      }
+    },
+    {
+      "filename": "rul_regressor.pkl",
+      "relpath": "rul/rul_regressor.pkl",
+      "size_bytes": 78072,
+      "sha256": "d294ae38c84ca99ac86b8631ce02e1958ce6793ce91598f08e19fcacd6e36afb",
+      "observed": {
+        "python_class": "GradientBoostingRegressor",
+        "module": "sklearn.ensemble._gb",
+        "has_feature_names_in_": false,
+        "n_features_in_": 14,
+        "n_estimators": 50,
+        "max_depth": 3
+      },
+      "declared": {
+        "role": "rul_regressor",
+        "input_order": [
+          "altitude_ft",
+          "ambient_temperature_C",
+          "throttle_pct",
+          "rpm",
+          "fuelflow_kgh",
+          "coolant_temp_C",
+          "EGT_mean_C",
+          "oil_pressure_bar",
+          "oil_temperature_C",
+          "delta_EGT_mean_C",
+          "delta_coolant_temp_C",
+          "delta_oil_pressure_bar",
+          "delta_oil_temperature_C",
+          "delta_fuelflow_kgh"
+        ],
+        "input_order_provenance": "config file + feature_names.json (14/14 validated)",
+        "units": "unknown",
+        "units_provenance": "MISSING -- must be read from the training script",
+        "metrics": {
+          "r2": -0.103,
+          "mae": 107.0
+        },
+        "metrics_provenance": "training_pipeline",
+        "trusted": false,
+        "caveat": "negative R2: worse than predicting the training mean. Display as a trend indicator only, never as a time-to-failure."
+      }
+    }
+  ]
+}
