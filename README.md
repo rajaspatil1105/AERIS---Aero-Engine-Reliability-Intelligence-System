@@ -81,3 +81,11 @@ the UI must suppress scoring while throttle is moving.
 `GET /caveats` returns session provenance, not the 43 declared caveats - see
 `CAVEATS.md` for those. Captured live payloads for every status are in
 `contract/`.
+`GET /live` is a JSON snapshot endpoint, not a stream - poll it, no WebSocket or
+SSE client needed. It echoes the last processed frame. Note `gate_threshold` is
+null on UNAVAILABLE frames, so the UI cannot rely on it always being present.
+
+Every frame response embeds a `caveats` block with measured model metrics: gate
+precision 0.511 / recall 0.9982 / F1 0.676 (equals the always-fault baseline at
+a 0.511 prior), RUL R2 -0.103 / MAE 107. Surface this in the UI rather than
+hiding it - the backend states its own limits on every frame by design.
