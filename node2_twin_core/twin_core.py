@@ -72,6 +72,7 @@ class TwinFrame:
     ml_evaluated: bool = False
     in_envelope: bool = True
     envelope_violations: list = field(default_factory=list)
+    admit_reason: str | None = None   # set only when a frame was refused
 
     is_healthy: bool | None = None
     anomaly_probability: float | None = None
@@ -148,7 +149,9 @@ class TwinCore:
     def reset(self) -> None:
         self.rul_engine.reset()
 
-    def process(self, payload: Mapping, explain: bool = False) -> TwinFrame:
+    def process(self, payload: Mapping, explain: bool = False,
+                admit_ok: bool = True,
+                admit_reason: str | None = None) -> TwinFrame:
         t0 = time.perf_counter()
         ts = time.time()
 
@@ -192,6 +195,21 @@ class TwinCore:
                 headline=("CRITICAL SAFETY LIMIT BREACHED" if breaches
                           else "outside trained envelope -- diagnosis withheld"),
                 ml_evaluated=False, **common))
+
+        # Transient: the frame is INSIDE the envelope but the lagged
+        # channels have not settled, so residuals reflect thermal lag and
+        # not engine condition. Same treatment as out-of-envelope -- models
+        # skipped, RUL trend untouched, hard limits above still authoritative.
+        # The caller decides admission (see shared/throttle_dynamics.py
+        # admit_frame); this only decides what the refused frame looks like.
+        if not admit_ok:
+            return finish(TwinFrame(
+                status=STATUS_CRITICAL if breaches else STATUS_UNAVAILABLE,
+                headline=("CRITICAL SAFETY LIMIT BREACHED" if breaches
+                          else "transient -- diagnosis withheld until settled"),
+                ml_evaluated=False,
+                admit_reason=admit_reason,
+                **common))
 
         x = np.asarray([res.vector], dtype=float)
         p_anom = float(self.predictor.gate.predict_proba(x)[0]
@@ -299,6 +317,26 @@ def _self_test() -> None:
           f"breaches={len(f.safety_breaches)}")
     if f.status != STATUS_CRITICAL:
         fails.append("hard limit ignored outside envelope")
+
+    print("\nCASE 10 transient refused -> UNAVAILABLE, still in envelope")
+    f = core.process(p, admit_ok=False, admit_reason="throttle moving at 5.0 %/s")
+    print(f"  {f.status:<12} {f.headline}")
+    print(f"  ml_evaluated={f.ml_evaluated} in_envelope={f.in_envelope}")
+    if f.status != STATUS_UNAVAILABLE or f.ml_evaluated:
+        fails.append("transient frame was still scored")
+    if not f.in_envelope:
+        fails.append("transient frame reported out of envelope")
+    if f.admit_reason is None:
+        fails.append("transient refusal lost its admit_reason")
+    if f.anomaly_probability is not None or f.rul is not None:
+        fails.append("transient refusal carried ML output")
+
+    print("\nCASE 11 hard limit still applies to a refused transient")
+    f = core.process(dict(p, oil_pressure_bar=0.5), admit_ok=False,
+                     admit_reason="throttle moving at 5.0 %/s")
+    print(f"  {f.status:<12} breaches={len(f.safety_breaches)}")
+    if f.status != STATUS_CRITICAL:
+        fails.append("hard limit ignored on a refused transient")
 
     print("\nCASE 6  attribution on demand")
     f = core.process(dict(p, EGT_mean_C=p["EGT_mean_C"] + 80.0), explain=True)

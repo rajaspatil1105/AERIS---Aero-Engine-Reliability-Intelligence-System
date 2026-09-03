@@ -146,6 +146,14 @@ class ServiceState:
     frames_processed: int = 0
     last_frame: dict[str, Any] | None = None
 
+    # -- admission state, per process. Reset by POST /sessions. -----------
+    # dt is measured from ARRIVAL time, not sample time: TelemetryIn has no
+    # timestamp field, so network jitter is indistinguishable from a slower
+    # sample rate. See CAVEATS.md. A client-supplied ts is the real fix.
+    prev_payload: dict[str, float] | None = None
+    prev_monotonic: float | None = None
+    last_throttle_change_monotonic: float | None = None
+
     @property
     def ready(self) -> bool:
         return self.core is not None and self.store is not None
