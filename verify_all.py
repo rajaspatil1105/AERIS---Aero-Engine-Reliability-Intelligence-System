@@ -1,4 +1,4 @@
-﻿"""AERIS -- run every module self-test in one command.
+"""AERIS -- run every module self-test in one command.
 
 WHY THIS EXISTS
 Verification lived in 19 separate module-level _self_test() functions invoked
@@ -22,13 +22,17 @@ that should stop all work.
 from __future__ import annotations
 
 import os
+import tempfile
 import subprocess
 import sys
 import time
 from typing import List, Optional, Tuple
 
 INVARIANT = "0.5443998040908319"
-DEFAULT_DB = r"C:\aeris_data\verify.db"
+DEFAULT_DB = os.path.join(
+    os.environ.get("LOCALAPPDATA") or tempfile.gettempdir(),
+    "aeris", "verify.db"
+)
 
 # (module, group, heavy). Order matters: node2 is the foundation, so a
 # failure there explains failures everywhere above it.
@@ -132,6 +136,7 @@ def main(argv: List[str]) -> int:
         return 1
 
     os.environ.setdefault("AERIS_DB", DEFAULT_DB)
+    os.makedirs(os.path.dirname(os.environ["AERIS_DB"]), exist_ok=True)
     timeout_s = 150.0 if fast else 480.0
 
     print(f"AERIS verify_all   {len(selected)} module(s)"
