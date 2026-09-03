@@ -1,4 +1,4 @@
-﻿"""AERIS throttle dynamics -- transient response of the twin.
+"""AERIS throttle dynamics -- transient response of the twin.
 
 The stress simulator maps competence over a STATIC grid. This module walks a
 throttle-versus-time profile and reports what the twin sees during the
@@ -703,6 +703,47 @@ def dynamics_caveats() -> List[Dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------
+def admit_frame(prev: Optional[Mapping[str, float]],
+                current: Mapping[str, float],
+                dt_s: float,
+                since_change_s: Optional[float] = None) -> Dict[str, Any]:
+    """Steady-state admission for an arbitrary measured frame.
+
+    Unlike _admit(), which compares a simulated thermal state against its
+    target, this works on measured telemetry where no simulated state exists.
+    Two rules, both from the same constants the simulator uses:
+
+      1. throttle rate  |d(throttle)/dt| must be <= the rate tolerance
+      2. settling       after any throttle change, the slowest lagged channel
+                        needs ~4*tau to converge. Pass since_change_s (seconds
+                        since the last throttle movement); None skips rule 2.
+
+    Returns {admit, reason, elapsed_s, required_s, slowest_channel, rate_pct_s}.
+    Callers that skip this will score transient frames as faults -- see the
+    498 false-FAULT finding in dynamics_caveats().
+    """
+    tol = THROTTLE_RATE_TOL_PCT_S
+    slowest = max(TAU_S, key=TAU_S.get)
+    required = 4.0 * TAU_S[slowest]
+
+    out: Dict[str, Any] = {"admit": True, "reason": None, "elapsed_s": since_change_s,
+                           "required_s": required, "slowest_channel": slowest,
+                           "rate_pct_s": None}
+
+    if prev is not None and dt_s and dt_s > 0:
+        rate = abs(float(current["throttle_pct"]) - float(prev["throttle_pct"])) / float(dt_s)
+        out["rate_pct_s"] = rate
+        if rate > tol:
+            out["admit"] = False
+            out["reason"] = f"throttle moving at {rate:.3f} %/s (tol {tol} %/s)"
+            return out
+
+    if since_change_s is not None and since_change_s < required:
+        out["admit"] = False
+        out["reason"] = (f"settling: {since_change_s:.1f}s of {required:.0f}s "
+                         f"since throttle change, slowest channel {slowest}")
+    return out
+
 def _self_test() -> None:
     fails: List[str] = []
 
@@ -998,8 +1039,24 @@ def _self_test() -> None:
         raise SystemExit(1)
     print("\nTHROTTLE DYNAMICS SELF-CHECK OK")
     print("  scored / transient / declined / refused are four different answers")
+    # -- admit_frame(): the public wrapper the HTTP path will call ---------
+    base = {"throttle_pct": 80.0}
+    a = admit_frame(base, {"throttle_pct": 80.0}, 1.0, since_change_s=400.0)
+    assert a["admit"] is True, a
+    assert a["slowest_channel"] == "oil_temperature_C", a
+    assert abs(a["required_s"] - 100.0) < 1e-9, a
+    b = admit_frame(base, {"throttle_pct": 85.0}, 1.0, since_change_s=400.0)
+    assert b["admit"] is False and "%/s" in b["reason"], b
+    assert abs(b["rate_pct_s"] - 5.0) < 1e-9, b
+    c = admit_frame(base, {"throttle_pct": 80.0}, 1.0, since_change_s=10.0)
+    assert c["admit"] is False and "settling" in c["reason"], c
+    d = admit_frame(None, {"throttle_pct": 80.0}, 1.0)
+    assert d["admit"] is True and d["rate_pct_s"] is None, d
+    print("  admit_frame: rate + settling rules guarded")
+
     print("  transient shape is real; the time constants are not yet validated")
 
 
 if __name__ == "__main__":
     _self_test()
+
