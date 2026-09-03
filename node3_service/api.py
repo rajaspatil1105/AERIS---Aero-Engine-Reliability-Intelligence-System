@@ -415,6 +415,7 @@ def create_app() -> FastAPI:
     @app.post("/sessions", tags=["history"], status_code=201)
     def new_session(body: SessionIn,
                     st: ServiceState = Depends(get_state)) -> dict[str, Any]:
+        st.core.reset()          # clear RUL EWMA trend state
         st.store.close_session()
         sid = st.store.open_session(note=body.note or "api", manifest=st.manifest)
         return {"session_id": sid}
