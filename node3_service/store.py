@@ -643,6 +643,59 @@ def _self_test() -> None:
         failures.append("foreign key cascade not active")
     again.close()
 
+    print("\nCASE 9  schema 1 -> 2 migration adds refusal_class")
+    import contextlib as _ctx
+    import io as _io
+    import sqlite3 as _sq
+    # An aeris.db written before the column existed must not crash the
+    # 14-value INSERT. Build a real schema-1 file by stripping the column
+    # out of DDL, then let Store open it.
+    mig = Path(tempfile.gettempdir()) / f"aeris_mig_{os.getpid()}.db"
+    for suffix in ("", "-wal", "-shm"):
+        Path(str(mig) + suffix).unlink(missing_ok=True)
+    legacy = "\n".join(x for x in DDL.splitlines()
+                       if "refusal_class" not in x)
+    old = _sq.connect(mig)
+    old.executescript(legacy)
+    old.execute("INSERT INTO meta(key, value) VALUES('schema_version', '1')")
+    old.commit()
+    had = "refusal_class" in [r[1] for r in
+                              old.execute("PRAGMA table_info(frames)")]
+    old.close()
+    if had:
+        failures.append("legacy fixture already had refusal_class: "
+                        "the DDL strip failed, so this case proves nothing")
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        m1 = Store(mig, warn_on_sync_folder=False)
+    said = "migrated schema 1 -> 2" in buf.getvalue()
+    cols = [r[1] for r in m1.db.execute("PRAGMA table_info(frames)")]
+    ver = m1.db.execute(
+        "SELECT value v FROM meta WHERE key='schema_version'").fetchone()["v"]
+    m1.close()
+    has_col = "refusal_class" in cols
+    print(f"  legacy db had column: {had} (want False)")
+    print(f"  announced: {said}  column now: {has_col}  version now: {ver}")
+    if not said:
+        failures.append("migration ran silently: an operator upgrading an "
+                        "existing db gets no record that it happened")
+    if not has_col:
+        failures.append("migration did not add frames.refusal_class")
+    if str(ver) != str(SCHEMA_VERSION):
+        failures.append(f"schema_version {ver} != {SCHEMA_VERSION}")
+    buf2 = _io.StringIO()
+    with _ctx.redirect_stdout(buf2):
+        m2 = Store(mig, warn_on_sync_folder=False)
+    m2.close()
+    quiet = "migrated" not in buf2.getvalue()
+    print(f"  second open silent: {quiet}")
+    if not quiet:
+        failures.append("migration is not idempotent: it re-ran on an "
+                        "already-migrated db")
+    for suffix in ("", "-wal", "-shm"):
+        Path(str(mig) + suffix).unlink(missing_ok=True)
+
+
     for suffix in ("", "-wal", "-shm"):
         Path(str(tmp) + suffix).unlink(missing_ok=True)
 
