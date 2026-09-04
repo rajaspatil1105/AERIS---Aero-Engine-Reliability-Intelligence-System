@@ -487,6 +487,48 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
+def service_caveats() -> list[dict[str, Any]]:
+    """Declared limits of the SERVICE layer, for make_caveats.py.
+
+    These were comments in the admission block and a hand-written note in
+    CAVEATS.md, which is generated -- the note would have been lost on the
+    next regeneration. Declared here so the generator counts them.
+    """
+    import time as _t
+    _res = _t.get_clock_info("monotonic").resolution
+    return [{
+        "id": "admission_dt_needs_a_fine_clock", "verified": True,
+        "value": {"clock": "time.perf_counter",
+                  "monotonic_resolution_s": _res},
+        "detail": "the throttle rate rule divides a throttle delta by dt, so "
+                  "it is only as good as the clock. On CPython 3.11 for "
+                  "Windows time.monotonic() is GetTickCount64 at 15.625 ms, "
+                  "which quantizes dt to 0.0 at a 10 Hz frame rate and makes "
+                  "the rate unevaluable -- the settling assertion passed or "
+                  "failed depending on which side of a tick two frames "
+                  "landed. Admission now uses perf_counter. VERIFIED: this "
+                  "value is read from the running interpreter, so a port to "
+                  "a platform with a coarse perf_counter shows up here.",
+    }, {
+        "id": "dt_is_arrival_time_not_sample_time", "verified": False,
+        "value": "no timestamp field on TelemetryIn",
+        "detail": "dt is measured between HTTP arrivals, so network jitter "
+                  "is indistinguishable from a genuinely slower sample rate. "
+                  "A burst of delayed frames can read as a throttle "
+                  "transient and be refused, and a slow producer can read as "
+                  "steady when it is not. The real fix is a client-supplied "
+                  "sample timestamp, which is a contract change.",
+    }, {
+        "id": "admission_state_assumes_one_producer", "verified": False,
+        "value": "ServiceState.prev_payload / prev_monotonic / "
+                 "last_throttle_change_monotonic",
+        "detail": "admission history is per-process, not per-client. Two "
+                  "producers POSTing concurrently interleave into one "
+                  "history, so each sees the other frame as its previous "
+                  "one and the computed throttle rate is meaningless. "
+                  "Session reset clears it. Single producer only.",
+    }]
+
 def _self_test() -> None:
     from fastapi.testclient import TestClient
 

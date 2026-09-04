@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import datetime, importlib, pathlib
 
 SOURCES = [
@@ -8,6 +8,7 @@ SOURCES = [
     ("shared.stress_sim",        "stress_caveats",       "Shared - envelope stress sweep"),
     ("shared.throttle_dynamics", "dynamics_caveats",     "Shared - throttle dynamics / admission gate"),
     ("shared.fault_injection",   "injection_caveats",    "Shared - synthetic fault injection"),
+    ("node3_service.api",        "service_caveats",      "Node 3 service - admission clock and producer assumptions"),
 ]
 
 out, missing, total, unver = [], [], 0, 0

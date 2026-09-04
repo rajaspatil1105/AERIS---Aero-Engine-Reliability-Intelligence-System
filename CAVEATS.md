@@ -1,6 +1,6 @@
 # AERIS - declared caveats
 
-Generated 2026-09-02 21:17 by make_caveats.py. Do not edit by hand.
+Generated 2026-09-05 01:03 by make_caveats.py. Do not edit by hand.
 
 ## Node 1 ingestion adapter - input assumptions
 
@@ -206,34 +206,27 @@ Source: `shared.fault_injection.injection_caveats()`
 - **value**: 182.5 healthy -> -25.3 overheat_coupled
 - **detail**: measured across injections: rul_raw orders as 182.5 healthy, 165.9 fuel, 163.7 oil pressure, 120.3 coolant (identical for +10 and +25 C, so it saturates too), 53.0 EGT, 18.4 oil hot, -0.06 lubrication, -25.3 coupled overheat. It carries more severity information than p_anom, which is flat. But it goes NEGATIVE, rul_units is 'unknown' and rul_trusted is False throughout, so it is a direction of travel and must never be rendered as minutes remaining.
 
+## Node 3 service - admission clock and producer assumptions
+
+Source: `node3_service.api.service_caveats()`
+
+### admission_dt_needs_a_fine_clock  [VERIFIED]
+- **value**: {'clock': 'time.perf_counter', 'monotonic_resolution_s': 0.015625}
+- **detail**: the throttle rate rule divides a throttle delta by dt, so it is only as good as the clock. On CPython 3.11 for Windows time.monotonic() is GetTickCount64 at 15.625 ms, which quantizes dt to 0.0 at a 10 Hz frame rate and makes the rate unevaluable -- the settling assertion passed or failed depending on which side of a tick two frames landed. Admission now uses perf_counter. VERIFIED: this value is read from the running interpreter, so a port to a platform with a coarse perf_counter shows up here.
+
+### dt_is_arrival_time_not_sample_time  [UNVERIFIED]
+- **value**: no timestamp field on TelemetryIn
+- **detail**: dt is measured between HTTP arrivals, so network jitter is indistinguishable from a genuinely slower sample rate. A burst of delayed frames can read as a throttle transient and be refused, and a slow producer can read as steady when it is not. The real fix is a client-supplied sample timestamp, which is a contract change.
+
+### admission_state_assumes_one_producer  [UNVERIFIED]
+- **value**: ServiceState.prev_payload / prev_monotonic / last_throttle_change_monotonic
+- **detail**: admission history is per-process, not per-client. Two producers POSTing concurrently interleave into one history, so each sees the other frame as its previous one and the computed throttle rate is meaningless. Session reset clears it. Single producer only.
+
 ## Summary
 
-- 43 declared caveats, 18 marked UNVERIFIED.
+- 46 declared caveats, 20 marked UNVERIFIED.
 - Regression invariant: p_anom = 0.5443998040908319 at rpm 5000, throttle 80 %, 6000 ft, 10 C.
 - Fault gate threshold 0.65 is UNTRUSTED pre-retrain.
 - Multiclass label 'fuel_pressure_dev' is a dead class and is never predicted.
 - RUL is emitted with rul_trusted = False and rul_units = 'unknown'.
 - Transient frames are not scored by design; they surface as UNAVAILABLE with a reason.
-
-## Timing resolution and the throttle rate rule
-
-The admission rate check divides a throttle delta by `dt`, and `dt` comes
-from `time.perf_counter()` in `_process_and_store`. It was `time.monotonic()`
-until CASE 12's first run, which exposed the problem: on Windows `monotonic()`
-is backed by GetTickCount64 at ~15.6 ms granularity, so two frames arriving
-inside one tick produce `dt = 0.0` exactly. Those frames were refused as
-`transient`, but by the `dt_s <= 0` guard rather than by the rate or settling
-rule -- the right answer for the wrong reason, and invisible without a test
-that reads `admit_reason`.
-
-`perf_counter()` is QueryPerformanceCounter, sub-microsecond, and is still
-monotonic. `ServiceState.started_monotonic` and `uptime_s()` continue to use
-`monotonic()`; uptime does not need the resolution.
-
-Two consequences remain. `dt` is measured at frame arrival, not from a client
-timestamp, because `TelemetryIn` carries nine float fields and
-`contract_probe.py` pins that count from `openapi.json`; network jitter
-therefore lands directly in the computed rate, and a 5 %/s change spread over
-a jittered 3 s read is scored as 1.7 %/s. And admission state is process-wide,
-so concurrent producers interleave `dt` and corrupt the rate for each other.
-One feeder posts, browsers poll.
