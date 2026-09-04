@@ -214,3 +214,26 @@ Source: `shared.fault_injection.injection_caveats()`
 - Multiclass label 'fuel_pressure_dev' is a dead class and is never predicted.
 - RUL is emitted with rul_trusted = False and rul_units = 'unknown'.
 - Transient frames are not scored by design; they surface as UNAVAILABLE with a reason.
+
+## Timing resolution and the throttle rate rule
+
+The admission rate check divides a throttle delta by `dt`, and `dt` comes
+from `time.perf_counter()` in `_process_and_store`. It was `time.monotonic()`
+until CASE 12's first run, which exposed the problem: on Windows `monotonic()`
+is backed by GetTickCount64 at ~15.6 ms granularity, so two frames arriving
+inside one tick produce `dt = 0.0` exactly. Those frames were refused as
+`transient`, but by the `dt_s <= 0` guard rather than by the rate or settling
+rule -- the right answer for the wrong reason, and invisible without a test
+that reads `admit_reason`.
+
+`perf_counter()` is QueryPerformanceCounter, sub-microsecond, and is still
+monotonic. `ServiceState.started_monotonic` and `uptime_s()` continue to use
+`monotonic()`; uptime does not need the resolution.
+
+Two consequences remain. `dt` is measured at frame arrival, not from a client
+timestamp, because `TelemetryIn` carries nine float fields and
+`contract_probe.py` pins that count from `openapi.json`; network jitter
+therefore lands directly in the computed rate, and a 5 %/s change spread over
+a jittered 3 s read is scored as 1.7 %/s. And admission state is process-wide,
+so concurrent producers interleave `dt` and corrupt the rate for each other.
+One feeder posts, browsers poll.

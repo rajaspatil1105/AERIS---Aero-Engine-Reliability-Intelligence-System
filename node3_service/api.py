@@ -686,6 +686,34 @@ def _self_test() -> None:
         print("  non-finite input at the edge (422), so that class is covered")
         print("  in twin_core, not over HTTP.")
 
+        print("\nCASE 12  response contract is frozen (34 keys)")
+        CONTRACT_KEYS = (
+            "admit_reason", "advisories", "anomaly_probability", "caveats",
+            "envelope_violations", "error", "expected", "explanation",
+            "fault_confidence", "fault_label", "fault_probabilities",
+            "features", "gate_threshold", "headline", "in_envelope",
+            "is_healthy", "latency_ms", "ml_evaluated", "models_trusted",
+            "refusal_class", "residuals", "rul", "rul_minutes_to_zero",
+            "rul_raw", "rul_trend_per_minute", "rul_trend_significant",
+            "rul_trusted", "rul_units", "safety_alert", "safety_breaches",
+            "seq", "status", "timestamp", "unmonitored_fields",
+        )
+        c.post("/sessions", json={"note": "case 12 contract"})
+        scored = c.post("/frames", json=healthy).json()
+        refused = c.post("/frames", json=dict(healthy, throttle_pct=40.0)).json()
+        for _name, _d in (("scored", scored), ("refused", refused)):
+            _got = tuple(sorted(_d.keys()))
+            print(f"  {_name:<8} {len(_got)} keys")
+            if _got != CONTRACT_KEYS:
+                _miss = [k for k in CONTRACT_KEYS if k not in _got]
+                _extra = [k for k in _got if k not in CONTRACT_KEYS]
+                failures.append(f"{_name} frame breaks the 34-key contract: "
+                                f"missing={_miss} extra={_extra}")
+        print("  a refused frame carries the same keys as a scored one, so the")
+        print("  UI never guards for an absent field -- only for a null one.")
+        print("  adding a field here is a deliberate contract bump: update")
+        print("  CONTRACT.md and this tuple together, or the suite fails.")
+
     for sfx in ("", "-wal", "-shm"):
         try:
             os.unlink(dbp + sfx)

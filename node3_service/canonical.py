@@ -14,7 +14,7 @@ This module adds a SECOND door that accepts the full canonical frame:
     68-col TelemetryPayload  ->  raw_store   (all 68 columns persisted)
                              ->  adapter     (9 twin features derived)
                              ->  TwinCore    (unchanged)
-                             ->  store       (30-key twin output persisted)
+                             ->  store       (34-key twin output persisted)
 
 The existing 9-field endpoints are untouched and keep working, so demo_ramp.py
 and every existing self-test are unaffected.
