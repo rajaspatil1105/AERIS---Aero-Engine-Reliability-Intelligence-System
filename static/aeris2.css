@@ -23,3 +23,19 @@ table.t td{text-align:right;padding:2px 5px;border-bottom:1px solid #0e1524}
 ul.ev{list-style:none;margin:6px 0 0;padding:0;font-size:10px}
 ul.ev li{padding:2px 0 2px 7px;border-left:2px solid currentColor;
   margin-bottom:3px;line-height:1.35}
+#grid{grid-template-rows:auto auto minmax(120px,1fr) auto}
+.panel .body{font-size:11px}
+#bar{flex-shrink:0}
+#shell{overflow:hidden}
+#p-schem{padding:4px}
+#schem{width:100%;height:100%;display:block}
+#schem.greyed{filter:grayscale(1) brightness(.75)}
+#schem text{font:9px ui-monospace,Consolas,monospace}
+#schem .sl{fill:#8b949e;letter-spacing:.08em}
+#schem .sv{fill:#c9d1d9;font-size:10px;font-weight:600}
+#schem .sn{fill:#8b949e;font-size:11px}
+#schem .veil{fill:#6e7681;font-size:15px;letter-spacing:.16em}
+#schem .ph-svg{opacity:.4}
+#schem .phc{fill:none;stroke:#30363d;stroke-width:1;stroke-dasharray:2 2}
+#schem .phr{fill:none;stroke:#30363d;stroke-width:1;stroke-dasharray:3 3}
+#schem .pht{fill:#8b949e;font-size:7px;letter-spacing:.1em}

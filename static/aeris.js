@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 const POLL_MS = 500, SETTLE_S = 100;
 const $ = (id) => document.getElementById(id);
 let frames = 0, misses = 0, logged = false;
@@ -185,6 +185,7 @@ function render(f) {
   $("p-diag").innerHTML = diagnosis(f);
   $("p-rul").innerHTML = rulBlock(f);
   $("p-refuse").innerHTML = admission(f);
+  paintSchematic(f);
 
   const x = f.features || {};
   $("b-thr").textContent = num(x.throttle_pct, 1) + " %";
