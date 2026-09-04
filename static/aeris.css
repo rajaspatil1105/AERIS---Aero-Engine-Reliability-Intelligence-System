@@ -1,0 +1,75 @@
+﻿:root{
+  --bg:#0a0e1a; --panel:#111827; --edge:#1f2937; --edge2:#30363d;
+  --txt:#c9d1d9; --dim:#8b949e; --acc:#22d3ee;
+  --ok:#3fb950; --adv:#e3b341; --fault:#ff7b31; --crit:#f85149;
+  --na:#6e7681; --tran:#58a6ff;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:12px/1.45 ui-monospace,"Cascadia Mono",Consolas,monospace;
+  display:flex;flex-direction:column;overflow:hidden}
+b{font-weight:600;letter-spacing:.02em}
+
+#untrusted{background:#3a2a08;color:var(--adv);border-bottom:1px solid #5c4310;
+  padding:5px 12px;font-size:11px;letter-spacing:.04em;text-align:center}
+
+#strip{display:flex;align-items:center;gap:22px;padding:7px 12px;
+  background:var(--panel);border-bottom:1px solid var(--edge)}
+.brand{color:var(--acc);font-weight:700;letter-spacing:.22em}
+.f{display:flex;flex-direction:column;line-height:1.25}
+.f i{color:var(--dim);font-style:normal;font-size:9px;letter-spacing:.12em}
+#link{margin-left:auto;padding:2px 9px;border:1px solid var(--edge2);
+  border-radius:2px;font-size:10px;letter-spacing:.1em}
+#link.up{color:var(--ok);border-color:#1c4227}
+#link.down{color:var(--crit);border-color:#5c1f1c}
+
+#shell{flex:1;display:flex;min-height:0}
+#rail{width:104px;background:var(--panel);border-right:1px solid var(--edge);
+  display:flex;flex-direction:column;padding:8px 0}
+.rail-sp{flex:1}
+.tab{all:unset;cursor:pointer;padding:11px 10px;color:var(--dim);
+  border-left:2px solid transparent;font:inherit;font-size:10px;
+  letter-spacing:.1em;display:flex;flex-direction:column;gap:4px}
+.tab span{color:var(--edge2);font-size:13px}
+.tab:hover{color:var(--txt);background:#0d1424}
+.tab.on{color:var(--acc);border-left-color:var(--acc);background:#0d1424}
+.tab.on span{color:var(--acc)}
+
+#grid{flex:1;min-height:0;overflow:auto;padding:10px;display:grid;gap:10px;
+  grid-template-columns:repeat(4,1fr);
+  grid-template-rows:auto auto 1fr auto;
+  grid-template-areas:
+    "status status gauges gauges"
+    "schem  schem  resid  resid"
+    "schem  schem  diag   rul"
+    "refuse refuse fft    cyl";}
+
+.panel{background:var(--panel);border:1px solid var(--edge);border-radius:2px;
+  display:flex;flex-direction:column;min-height:70px;overflow:hidden}
+.panel h2{margin:0;padding:6px 9px;font-size:10px;letter-spacing:.14em;
+  color:var(--dim);border-bottom:1px solid var(--edge);
+  display:flex;gap:8px;align-items:baseline;background:#0e1524}
+.panel h2 i{font-style:normal;font-size:9px;color:var(--edge2);
+  letter-spacing:.06em;margin-left:auto}
+.panel .body{padding:9px;flex:1;min-height:0;overflow:auto}
+.dim{color:var(--dim)}
+
+.placeholder,.ph{opacity:.4}
+.placeholder{border-style:dashed;border-color:var(--edge2)}
+.tag{display:inline-block;margin-left:7px;padding:0 4px;font-size:8px;
+  letter-spacing:.1em;border:1px dashed var(--edge2);color:var(--dim);
+  border-radius:2px;vertical-align:middle}
+
+#bar{display:flex;gap:26px;padding:6px 12px;background:var(--panel);
+  border-top:1px solid var(--edge);font-size:11px}
+
+.s-HEALTHY{color:var(--ok)}
+.s-ADVISORY{color:var(--adv)}
+.s-FAULT{color:var(--fault)}
+.s-CRITICAL{color:var(--crit)}
+.s-UNAVAILABLE{color:var(--na)}
+.s-TRANSIENT{color:var(--tran)}
+.stale{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+
