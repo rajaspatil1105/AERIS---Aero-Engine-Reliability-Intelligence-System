@@ -38,7 +38,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = ROOT / "data" / "aeris.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SYNC_MARKERS = ("onedrive", "dropbox", "google drive", "gdrive", "icloud")
 
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS frames (
     rul_smoothed  REAL,
     rul_trusted   INTEGER,
     latency_ms    REAL,
+    refusal_class TEXT,
     frame_json    TEXT    NOT NULL,
     UNIQUE(session_id, seq)
 );
@@ -107,6 +108,7 @@ CREATE INDEX IF NOT EXISTS ix_events_sev     ON events(session_id, severity);
 # twin_core frame dict. First candidate whose KEY EXISTS wins.
 PROJECTION: dict[str, tuple[str, ...]] = {
     "status":       ("status", "state", "verdict"),
+    "refusal_class": ("refusal_class",),
     "meaningful":   ("in_envelope", "ml_evaluated", "meaningful"),
     "p_anom":       ("anomaly_probability", "p_anom", "p_anomaly"),
     "fault_label":  ("fault_label", "fault", "label"),
@@ -226,7 +228,7 @@ def project(frame: Mapping[str, Any]) -> Projection:
         p.resolved[col] = src
         if col in ("meaningful", "rul_trusted"):
             p.values[col] = _as_flag(v)
-        elif col in ("status", "fault_label"):
+        elif col in ("status", "fault_label", "refusal_class"):
             p.values[col] = None if v is None else str(v)
         else:
             p.values[col] = _as_num(v)
@@ -297,6 +299,21 @@ class Store:
         self.db.execute("PRAGMA synchronous = NORMAL")
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(DDL)
+
+        # schema 1 -> 2: refusal_class. CREATE TABLE IF NOT EXISTS will not
+        # alter an existing file, and this must read meta before the write
+        # below overwrites it. PRAGMA guard keeps it idempotent.
+        _row = self.db.execute(
+            "SELECT value FROM meta WHERE key='schema_version'").fetchone()
+        _old = int(_row[0]) if _row else SCHEMA_VERSION
+        if _old < 2:
+            _cols = {r[1] for r in self.db.execute("PRAGMA table_info(frames)")}
+            if "refusal_class" not in _cols:
+                self.db.execute(
+                    "ALTER TABLE frames ADD COLUMN refusal_class TEXT")
+                print(f"[store] migrated schema {_old} -> {SCHEMA_VERSION}: "
+                      "frames.refusal_class added, null on existing rows")
+
         self.db.execute(
             "INSERT INTO meta(key, value) VALUES('schema_version', ?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -367,7 +384,7 @@ class Store:
         self._buf.append((
             self.session_id, seq, ts, v["status"], v["meaningful"],
             v["p_anom"], v["fault_label"], v["confidence"], v["rul_raw"],
-            v["rul_smoothed"], v["rul_trusted"], v["latency_ms"],
+            v["rul_smoothed"], v["rul_trusted"], v["latency_ms"], v["refusal_class"],
             json.dumps(frame, separators=(",", ":"), default=str)))
         for e in extract_events(frame):
             self._ebuf.append((self.session_id, seq, ts, e["severity"],
@@ -389,8 +406,8 @@ class Store:
                 self.db.executemany(
                     "INSERT OR REPLACE INTO frames(session_id, seq, ts_utc,"
                     " status, meaningful, p_anom, fault_label, confidence,"
-                    " rul_raw, rul_smoothed, rul_trusted, latency_ms,"
-                    " frame_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", self._buf)
+                    " rul_raw, rul_smoothed, rul_trusted, latency_ms, refusal_class,"
+                    " frame_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", self._buf)
             if self._ebuf:
                 self.db.executemany(
                     "INSERT INTO events(session_id, frame_seq, ts_utc,"
@@ -413,7 +430,8 @@ class Store:
         sid = session_id or self.session_id
         cols = ("*" if full else
                 "id, seq, ts_utc, status, meaningful, p_anom, fault_label,"
-                " confidence, rul_smoothed, rul_trusted, latency_ms")
+                " confidence, rul_raw, rul_smoothed, rul_trusted,"
+                " latency_ms, refusal_class")
         rows = self.db.execute(
             f"SELECT {cols} FROM frames WHERE session_id=? "
             "ORDER BY seq DESC LIMIT ?", (sid, limit)).fetchall()
