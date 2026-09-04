@@ -38,6 +38,7 @@ from pydantic import (BaseModel, Field, field_validator,
                       model_validator)
 
 from node3_service.store import Store, StoreError
+from shared.throttle_dynamics import admit_frame
 
 API_VERSION = "0.1.0"
 
@@ -185,8 +186,31 @@ def _as_dict(result: Any) -> dict[str, Any]:
 
 
 def _process_and_store(st: ServiceState, payload: dict[str, float]) -> dict[str, Any]:
+    # REFUSAL VOCABULARY -- frozen contract; the UI branches on refusal_class.
+    #   None                   frame was scored: ml_evaluated True, ML fields set
+    #   "transient"            throttle moving, or 4*tau settling not elapsed.
+    #                          in_envelope stays True; admit_reason has prose.
+    #   "envelope_recoverable" outside the trained range on a channel the pilot
+    #                          controls (throttle, rpm, altitude)
+    #   "envelope_persistent"  outside the trained range on a channel nobody
+    #                          controls (ambient temperature)
+    #   "telemetry_unusable"   residuals could not be computed
+    # Hard safety limits fire on all of them: a refused frame can still come
+    # back CRITICAL (twin_core CASE 11). Refusal is not silence.
+    # -- steady-state admission (shared/throttle_dynamics.admit_frame) ----
+    # dt is an ARRIVAL delta: TelemetryIn carries no timestamp, so network
+    # jitter is indistinguishable from a slower sample rate. State is
+    # process-wide, so this assumes ONE producer. Both are in CAVEATS.md.
+    now = time.monotonic()
+    dt = (now - st.prev_monotonic) if st.prev_monotonic is not None else 0.0
+    since = ((now - st.last_throttle_change_monotonic)
+             if st.last_throttle_change_monotonic is not None else None)
+    adm = admit_frame(st.prev_payload, payload, dt, since_change_s=since)
+
     try:
-        frame = _as_dict(st.core.process(payload))
+        frame = _as_dict(st.core.process(payload,
+                                         admit_ok=adm["admit"],
+                                         admit_reason=adm["reason"]))
     except Exception as exc:  # twin core raises its own typed errors
         raise HTTPException(status_code=422,
                             detail=f"{type(exc).__name__}: {exc}") from exc
@@ -197,6 +221,11 @@ def _process_and_store(st: ServiceState, payload: dict[str, float]) -> dict[str,
                             detail=f"persistence failed: {exc}") from exc
     st.frames_processed += 1
     st.last_frame = frame
+    st.prev_monotonic = now
+    if (st.prev_payload is not None
+            and st.prev_payload["throttle_pct"] != payload["throttle_pct"]):
+        st.last_throttle_change_monotonic = now
+    st.prev_payload = dict(payload)
     out = dict(frame)
     out["seq"] = seq
     out["models_trusted"] = False
@@ -424,6 +453,9 @@ def create_app() -> FastAPI:
     def new_session(body: SessionIn,
                     st: ServiceState = Depends(get_state)) -> dict[str, Any]:
         st.core.reset()          # clear RUL EWMA trend state
+        st.prev_payload = None                 # admission history is
+        st.prev_monotonic = None               # session-scoped; a new
+        st.last_throttle_change_monotonic = None   # session starts settled
         st.store.close_session()
         sid = st.store.open_session(note=body.note or "api", manifest=st.manifest)
         return {"session_id": sid}
@@ -577,6 +609,10 @@ def _self_test() -> None:
             failures.append("explain endpoint failed")
 
         print("\nCASE 9  throughput over HTTP")
+        # CASE 5 left the throttle at 40 pct. Without a fresh session the
+        # 30 frames below are refused (rate, then settling) and this case
+        # times the refusal path instead of the scoring path.
+        c.post("/sessions", json={"note": "case 9 latency"})
         ts = []
         for i in range(30):
             t0 = time.perf_counter()
@@ -599,6 +635,56 @@ def _self_test() -> None:
         print(f"  session {sid} holds {fr2['count']} frame(s)")
         if fr2["count"] != 1:
             failures.append("new session did not isolate frames")
+
+        print("\nCASE 11  four refusal states over HTTP")
+        HEALTHY_P = 0.5443998040908319
+        c.post("/sessions", json={"note": "case 11 refusal vocabulary"})
+
+        d = c.post("/frames", json=healthy).json()
+        print(f"  scored          {d['status']:<12} cls={d['refusal_class']!r} "
+              f"p={d['anomaly_probability']}")
+        if d["refusal_class"] is not None or not d["ml_evaluated"]:
+            failures.append("steady healthy frame was refused")
+        if d["anomaly_probability"] != HEALTHY_P:
+            failures.append(f"healthy invariant moved: {d['anomaly_probability']}")
+
+        d = c.post("/frames", json=dict(healthy, throttle_pct=40.0)).json()
+        print(f"  throttle 40     {d['status']:<12} cls={d['refusal_class']!r} "
+              f"env={d['in_envelope']}")
+        if d["refusal_class"] != "envelope_recoverable" or d["in_envelope"]:
+            failures.append("throttle 40 is not envelope_recoverable")
+
+        d = c.post("/frames", json=healthy).json()
+        print(f"  rate            {d['status']:<12} cls={d['refusal_class']!r} "
+              f"reason={d['admit_reason']!r}")
+        if d["refusal_class"] != "transient" or not d["in_envelope"]:
+            failures.append("throttle step back is not a transient refusal")
+        if "%/s" not in (d["admit_reason"] or ""):
+            failures.append("transient refusal carries no rate prose")
+
+        d = c.post("/frames", json=healthy).json()
+        print(f"  settling        {d['status']:<12} cls={d['refusal_class']!r} "
+              f"reason={d['admit_reason']!r}")
+        if d["refusal_class"] != "transient":
+            failures.append("settling frame is not a transient refusal")
+        if "settling" not in (d["admit_reason"] or ""):
+            failures.append("settling window is not enforced after a step")
+
+        d = c.post("/frames", json=dict(healthy, ambient_temperature_C=35.0)).json()
+        print(f"  ambient 35      {d['status']:<12} cls={d['refusal_class']!r} "
+              f"env={d['in_envelope']}")
+        if d["refusal_class"] != "envelope_persistent":
+            failures.append("hot ambient is not envelope_persistent")
+
+        c.post("/sessions", json={"note": "case 11 reset"})
+        d = c.post("/frames", json=healthy).json()
+        print(f"  after /sessions {d['status']:<12} cls={d['refusal_class']!r} "
+              f"p={d['anomaly_probability']}")
+        if d["refusal_class"] is not None or d["anomaly_probability"] != HEALTHY_P:
+            failures.append("POST /sessions did not clear the admission history")
+        print("  telemetry_unusable is not reachable here: TelemetryIn rejects")
+        print("  non-finite input at the edge (422), so that class is covered")
+        print("  in twin_core, not over HTTP.")
 
     for sfx in ("", "-wal", "-shm"):
         try:

@@ -33,6 +33,7 @@ RUL history, but hard limits are absolute and still evaluated.
 from __future__ import annotations
 
 import time
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping
 
@@ -50,6 +51,33 @@ STATUS_FAULT = "FAULT"
 STATUS_ADVISORY = "ADVISORY"
 STATUS_HEALTHY = "HEALTHY"
 STATUS_UNAVAILABLE = "UNAVAILABLE"
+
+# Why a frame was refused. Prose lives in admit_reason; this is the field a
+# UI switches on. Exactly one is set whenever ml_evaluated is False.
+REFUSAL_TRANSIENT = "transient"                      # settles in seconds
+REFUSAL_ENV_RECOVERABLE = "envelope_recoverable"     # pilot can clear it
+REFUSAL_ENV_PERSISTENT = "envelope_persistent"       # dispatch decision
+REFUSAL_TELEMETRY = "telemetry_unusable"             # residuals not computable
+
+# Channels an operator changes within seconds. Anything else (ambient
+# temperature above all) is weather and will not clear during the flight.
+RECOVERABLE_CHANNELS = ("throttle_pct", "rpm", "altitude_ft")
+_VIOL_CHANNEL = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def classify_envelope(violations) -> str:
+    """Recoverable only if EVERY violated channel is operator-controllable.
+    A frame that is both too hot and at low throttle is persistent: the
+    worse condition governs, and levelling off will not fix the weather."""
+    chans = []
+    for v in violations or ():
+        m = _VIOL_CHANNEL.match(str(v))
+        if m:
+            chans.append(m.group(1))
+    if chans and all(c in RECOVERABLE_CHANNELS for c in chans):
+        return REFUSAL_ENV_RECOVERABLE
+    return REFUSAL_ENV_PERSISTENT
+
 
 STATUS_RANK = {
     STATUS_CRITICAL: 0, STATUS_FAULT: 1, STATUS_ADVISORY: 2,
@@ -73,6 +101,7 @@ class TwinFrame:
     in_envelope: bool = True
     envelope_violations: list = field(default_factory=list)
     admit_reason: str | None = None   # set only when a frame was refused
+    refusal_class: str | None = None   # machine-readable: see REFUSAL_* below
 
     is_healthy: bool | None = None
     anomaly_probability: float | None = None
@@ -171,6 +200,7 @@ class TwinCore:
                 status=STATUS_CRITICAL if breaches else STATUS_UNAVAILABLE,
                 headline=("CRITICAL SAFETY LIMIT BREACHED" if breaches
                           else "telemetry unusable"),
+                refusal_class=REFUSAL_TELEMETRY,
                 timestamp=ts, latency_ms=0.0,
                 safety_alert=bool(breaches),
                 safety_breaches=[b.describe() for b in breaches],
@@ -194,7 +224,9 @@ class TwinCore:
                 status=STATUS_CRITICAL if breaches else STATUS_UNAVAILABLE,
                 headline=("CRITICAL SAFETY LIMIT BREACHED" if breaches
                           else "outside trained envelope -- diagnosis withheld"),
-                ml_evaluated=False, **common))
+                ml_evaluated=False,
+                refusal_class=classify_envelope(res.violations),
+                **common))
 
         # Transient: the frame is INSIDE the envelope but the lagged
         # channels have not settled, so residuals reflect thermal lag and
@@ -209,6 +241,7 @@ class TwinCore:
                           else "transient -- diagnosis withheld until settled"),
                 ml_evaluated=False,
                 admit_reason=admit_reason,
+                refusal_class=REFUSAL_TRANSIENT,
                 **common))
 
         x = np.asarray([res.vector], dtype=float)
