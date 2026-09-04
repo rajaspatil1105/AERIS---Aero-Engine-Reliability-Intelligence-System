@@ -201,7 +201,10 @@ def _process_and_store(st: ServiceState, payload: dict[str, float]) -> dict[str,
     # dt is an ARRIVAL delta: TelemetryIn carries no timestamp, so network
     # jitter is indistinguishable from a slower sample rate. State is
     # process-wide, so this assumes ONE producer. Both are in CAVEATS.md.
-    now = time.monotonic()
+    # perf_counter, not monotonic(): on CPython 3.11 for Windows
+    # monotonic() is GetTickCount64 at 15.625 ms, which quantizes dt
+    # to 0.0 at 10 Hz and makes the throttle rate rule unevaluable.
+    now = time.perf_counter()
     dt = (now - st.prev_monotonic) if st.prev_monotonic is not None else 0.0
     since = ((now - st.last_throttle_change_monotonic)
              if st.last_throttle_change_monotonic is not None else None)
