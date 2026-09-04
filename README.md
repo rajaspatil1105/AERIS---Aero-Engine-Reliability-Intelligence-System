@@ -31,7 +31,7 @@ until proven otherwise.
 ## Known limits
 
 The full set is generated from source by `make_caveats.py` into `CAVEATS.md`
-(43 declared caveats, 18 of them UNVERIFIED). Do not edit `CAVEATS.md` by hand.
+(46 declared caveats, 20 of them UNVERIFIED). Do not edit `CAVEATS.md` by hand.
 The five that matter most for interpreting any output:
 
 The anomaly gate threshold of 0.65 is untrusted pre-retrain, and the gate was
@@ -94,7 +94,7 @@ Admission `dt` is measured from ARRIVAL time, not sample time, so network
 jitter is indistinguishable from a slower sample rate, and the state is
 process-wide - it assumes ONE producer. Both are in `CAVEATS.md`.
 
-`GET /caveats` returns session provenance, not the 43 declared caveats - see
+`GET /caveats` returns session provenance, not the 46 declared caveats - see
 `CAVEATS.md` for those. Captured live payloads for every status are in
 `contract/`.
 `GET /live` is a JSON snapshot endpoint, not a stream - poll it, no WebSocket or
