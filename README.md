@@ -1,4 +1,4 @@
-﻿# AERIS - Aero Engine Reliability Intelligence System
+# AERIS - Aero Engine Reliability Intelligence System
 
 A three-node pipeline that scores live engine telemetry against a steady-state
 digital twin: Node 1 ingests and adapts raw frames, Node 2 runs the physics deck,
@@ -41,7 +41,7 @@ The multiclass label `fuel_pressure_dev` is a dead class and is never predicted,
 so a genuine fuel pressure deviation cannot be diagnosed. RUL is emitted with
 `rul_trusted = False` and `rul_units = 'unknown'`; treat it as an ordering, not
 a time. Transient frames are not scored by design and surface as `UNAVAILABLE`
-with a reason, which costs roughly 250 s of settling after a throttle step. The
+with a reason, which costs roughly 100 s of settling after a throttle step. The
 deck accepts throttle only in [56.5, 100] % and ambient only in
 [-27.98, 30] C, so idle, low cruise and hot days are refused rather than scored.
 
@@ -55,7 +55,7 @@ certified thresholds.
 altitude_ft, ambient_temperature_C, throttle_pct, rpm, fuelflow_kgh,
 coolant_temp_C, EGT_mean_C, oil_pressure_bar, oil_temperature_C.
 The other 59 stored columns are derived server-side. Returns 201 with a
-32-key payload; the shape is identical for every status.
+34-key payload; the shape is identical for every status.
 
 Four statuses, not three: HEALTHY, ADVISORY, FAULT, UNAVAILABLE.
 ADVISORY has `is_healthy=false` and `fault_label=null` - a non-healthy frame
@@ -70,13 +70,29 @@ frame (oil-hot: rul_raw 18.4 vs rul 164.4). Both carry `rul_trusted=false` and
 contains "(unvalidated)". `safety_alert` was false across all ten synthetic
 injections; do not build a UI element that depends on it firing.
 
-`POST /explain` returns 503 in this build because the twin runs with
-explain=False. Treat it as "explanation unavailable", not an error.
+`POST /explain` returns 200 - the twin runs with `explain=True`. Response is
+`status, fault_label, explanation, caveat, elapsed_ms`. The first call after
+startup pays a ~7-10 s SHAP warm-up (done during app startup, not on the
+request); subsequent calls are ~2 ms. The `caveat` field is not decoration:
+SHAP attributions over a gate that measures at chance explain the model, not
+the engine.
 
-The steady-state admission pre-filter lives in `shared/throttle_dynamics.py`,
-not in `api.py`. Frames POSTed during a throttle transient WILL be scored and
-may read as false faults. Whatever streams frames must apply the pre-filter, or
-the UI must suppress scoring while throttle is moving.
+The steady-state admission pre-filter runs SERVER-SIDE: `api.py` calls
+`admit_frame()` from `shared/throttle_dynamics.py` on every POST. A frame that
+arrives during a throttle transient is refused, not scored - status
+`UNAVAILABLE` with a machine-readable `refusal_class`. Clients do not need to
+pre-filter, and must not render a refusal as a fault.
+
+`refusal_class` is `transient` (throttle moving faster than 0.5 %/s, or still
+inside the settling window after a step), `envelope_recoverable` (throttle or
+ambient outside the deck range, will score again on return),
+`envelope_persistent` (outside a range that will not recover in this flight),
+or `telemetry_unusable` (non-finite input - unreachable over HTTP, since
+`TelemetryIn` rejects it at the edge with 422). It is `null` on scored frames.
+
+Admission `dt` is measured from ARRIVAL time, not sample time, so network
+jitter is indistinguishable from a slower sample rate, and the state is
+process-wide - it assumes ONE producer. Both are in `CAVEATS.md`.
 
 `GET /caveats` returns session provenance, not the 43 declared caveats - see
 `CAVEATS.md` for those. Captured live payloads for every status are in
@@ -89,3 +105,16 @@ Every frame response embeds a `caveats` block with measured model metrics: gate
 precision 0.511 / recall 0.9982 / F1 0.676 (equals the always-fault baseline at
 a 0.511 prior), RUL R2 -0.103 / MAE 107. Surface this in the UI rather than
 hiding it - the backend states its own limits on every frame by design.
+
+## UI
+
+Plain static files in `static/`, mounted at `/ui` with `html=True`. No build
+step, no npm. The mount is guarded on a missing directory, so deleting
+`static/` degrades the UI without stopping the service.
+
+`GET /frames` returns a thin projection, not the 34-key frame:
+id, seq, ts_utc, status, refusal_class, meaningful, p_anom, fault_label,
+confidence, rul_raw, rul_smoothed, rul_trusted, latency_ms. Schema version 2
+added `refusal_class`; rows written before the migration carry `null` there
+even when UNAVAILABLE, so treat null as "unknown, fetch the detail" rather
+than "not refused". Full detail is `GET /frames/{seq}`.
