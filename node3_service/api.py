@@ -34,6 +34,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import (BaseModel, Field, field_validator,
                       model_validator)
 
@@ -307,6 +308,16 @@ def create_app() -> FastAPI:
             "required_fields": list(RAW_FIELDS),
         })
 
+    # UI is plain static files: no build step, no npm. Mounted at /ui so
+    # the "/" banner route and the REST surface stay exactly as frozen in
+    # CONTRACT.md. Guarded: a missing dir must not stop the service.
+    from pathlib import Path as _Path
+    _static = _Path(__file__).resolve().parent.parent / "static"
+    if _static.is_dir():
+        app.mount("/ui", StaticFiles(directory=str(_static), html=True),
+                  name="ui")
+    else:
+        print(f"[api] no static dir at {_static}; /ui not mounted")
     @app.get("/", tags=["meta"])
     def root() -> dict[str, Any]:
         st: ServiceState = app.state.aeris
