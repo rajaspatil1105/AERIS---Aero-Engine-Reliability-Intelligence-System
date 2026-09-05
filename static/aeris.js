@@ -88,10 +88,10 @@ function diagnosis(f) {
     const flat = top < 0.35;
 
   const bars = Object.keys(p).sort((a, b) => p[b] - p[a]).map((k) => {
-    const dead = k === "fuel_pressure_dev";
+    // NOT a dead class: it is the argmax at near-zero residual (predictor
     const w = (p[k] * 100).toFixed(1);
-    return '<div class="pr' + (dead ? " ph" : "") + '"><span>' +
-      k.replace(/_/g, " ") + (dead ? ' <span class="tag">DEAD CLASS</span>' : "") +
+    return '<div class="pr' + (nearZero ? " ph" : "") + '"><span>' +
+      k.replace(/_/g, " ") + (nearZero ? ' <span class="tag">NEAR-ZERO ARGMAX</span>' : "") +
       "</span><b>" + w + "%</b>" +
       '<div class="g-t"><div class="g-f" style="width:' + w + '%"></div></div></div>';
   }).join("");
