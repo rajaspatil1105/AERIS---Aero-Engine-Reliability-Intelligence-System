@@ -62,3 +62,9 @@ body.replay #untrusted::after{content:" | REPLAY: stored frames, not live"}
 #rp-bar{flex-wrap:wrap;row-gap:7px}
 #rp-strip{flex:0 0 100%;order:9;height:18px;gap:2px}
 #rp-strip b{max-width:16px}
+#grid{grid-template-rows:auto auto minmax(152px,1fr) auto}
+[style*="grid-area:diag"] .pr{font-size:10px;margin-bottom:2px}
+[style*="grid-area:diag"] .g-t{height:3px}
+[style*="grid-area:diag"] .big{font-size:15px;margin-bottom:1px}
+[style*="grid-area:diag"] .warn{font-size:9px;line-height:1.25;padding:2px 5px}
+#grid{grid-template-rows:auto auto minmax(196px,1fr) auto}

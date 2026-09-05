@@ -25,7 +25,7 @@ const SCHEM_SVG = `
  <circle id="z-hub" cx="300" cy="176" r="17" fill="none" stroke="#8b949e"
    stroke-width="2"/>
  <text id="t-rpm" x="300" y="180" class="sv" text-anchor="middle">--</text>
- <text x="300" y="200" class="sl" text-anchor="middle">CRANK (no residual)</text>
+ <text x="300" y="238" class="sl" text-anchor="middle">CRANK (no residual)</text>
 
  <rect id="z-jug-1" x="182" y="74" width="88" height="42" rx="3"
    fill="#1f2937" stroke="#30363d"/>
@@ -59,8 +59,8 @@ const SCHEM_SVG = `
 
  <rect id="z-sump" x="248" y="252" width="104" height="26" rx="2"
    fill="#1f2937" stroke="#30363d"/>
- <text x="252" y="268" class="sl">OIL SUMP</text>
- <text id="t-oil" x="348" y="268" class="sv" text-anchor="end">--</text>
+ <text x="300" y="250" class="sl" text-anchor="middle">OIL SUMP</text>
+ <text id="t-oil" x="300" y="270" class="sv" text-anchor="middle">--</text>
  <path id="z-oilline" d="M248 265 H160 V176 H270" fill="none"
    stroke="#30363d" stroke-width="2"/>
  <text x="96" y="252" class="sl">OIL PRESS</text>
