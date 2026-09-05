@@ -109,7 +109,10 @@ CREATE INDEX IF NOT EXISTS ix_events_sev     ON events(session_id, severity);
 PROJECTION: dict[str, tuple[str, ...]] = {
     "status":       ("status", "state", "verdict"),
     "refusal_class": ("refusal_class",),
-    "meaningful":   ("in_envelope", "ml_evaluated", "meaningful"),
+    # ml_evaluated FIRST: a transient refusal is inside the envelope but
+    # was never scored, so in_envelope alone projected meaningful=1 on
+    # frames that carry no numbers at all.
+    "meaningful":   ("ml_evaluated", "in_envelope", "meaningful"),
     "p_anom":       ("anomaly_probability", "p_anom", "p_anomaly"),
     "fault_label":  ("fault_label", "fault", "label"),
     "confidence":   ("fault_confidence", "confidence"),
@@ -642,6 +645,34 @@ def _self_test() -> None:
     if after != 0:
         failures.append("foreign key cascade not active")
     again.close()
+
+    print("\nCASE 10  refused frames are not meaningful")
+    ref = Path(tempfile.gettempdir()) / f"aeris_ref_{os.getpid()}.db"
+    for sfx in ("", "-wal", "-shm"):
+        Path(str(ref) + sfx).unlink(missing_ok=True)
+    rs = Store(ref, flush_every=1, warn_on_sync_folder=False)
+    rs.open_session(note="refusal projection")
+    # A transient refusal sits INSIDE the trained envelope -- the throttle is
+    # in range, the thermal state has not settled -- so in_envelope is true
+    # while nothing was scored. meaningful must follow ml_evaluated, not
+    # in_envelope, or the history strip claims numbers that do not exist.
+    rs.add_frame({"status": "UNAVAILABLE", "in_envelope": True,
+                  "ml_evaluated": False, "refusal_class": "transient"})
+    rs.add_frame({"status": "UNAVAILABLE", "in_envelope": False,
+                  "ml_evaluated": False,
+                  "refusal_class": "envelope_recoverable"})
+    rs.add_frame({"status": "HEALTHY", "in_envelope": True,
+                  "ml_evaluated": True, "anomaly_probability": 0.4})
+    rs.flush()
+    got = [(r["refusal_class"], r["meaningful"]) for r in rs.db.execute(
+        "SELECT refusal_class, meaningful FROM frames ORDER BY seq")]
+    print(f"  (refusal_class, meaningful): {got}")
+    want = [("transient", 0), ("envelope_recoverable", 0), (None, 1)]
+    if got != want:
+        failures.append(f"refusal projection: {got} != {want}")
+    rs.close()
+    for sfx in ("", "-wal", "-shm"):
+        Path(str(ref) + sfx).unlink(missing_ok=True)
 
     print("\nCASE 9  schema 1 -> 2 migration adds refusal_class")
     import contextlib as _ctx
