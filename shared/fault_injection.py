@@ -1,4 +1,4 @@
-﻿"""AERIS fault injection -- synthetic degradations that cross the gate.
+"""AERIS fault injection -- synthetic degradations that cross the gate.
 
 WHY THIS EXISTS
 Every frame the rest of the system can generate is a SYNTHESISED HEALTHY
@@ -29,8 +29,9 @@ THE LABEL MAPPING IS DISCOVERED, NOT ASSUMED
 Which fault_label a given channel offset produces is a property of the
 Cantera-generated training set (declared ~70% faithful), not of a real
 Rotax. CASE 6 scans every channel in both directions and prints the mapping
-it finds. fuel_pressure_dev is a known dead class and is asserted never to
-win, rather than being quietly excluded.
+it finds. fuel_pressure_dev is asserted never to win under injection at
+these offsets, not quietly excluded. It is NOT dead: it is the argmax at
+near-zero residual, the regime real sensor frames occupy (predictor CASE 5).
 """
 
 from __future__ import annotations
@@ -46,7 +47,12 @@ from shared.throttle_dynamics import GATE_RESID_TOL, _frame_from_state
 
 FAULT_INJECTION_VERSION = "0.1.2"
 HEALTHY_P_ANOM = 0.5443998040908319      # the regression invariant
-DEAD_CLASSES = ("fuel_pressure_dev",)
+# Was DEAD_CLASSES. Renamed 2026-09-05: never argmax for the
+# large single-channel offsets injected here, which is what CASE 7 asserts and
+# is still true. It IS the argmax at near-zero residual (|r| ~ 0.002), the
+# regime every real sensor frame occupies -- see predictor CASE 5. "Dead" was
+# an overreach from one stimulus range.
+NEVER_ARGMAX_UNDER_INJECTION = ("fuel_pressure_dev",)
 
 # The twin's full status vocabulary, discovered by injection. ADVISORY was not
 # known until oil_pressure_low produced it: gate not crossed, but a channel is
@@ -316,12 +322,13 @@ def injection_caveats() -> List[Dict[str, Any]]:
                   "one. A label being plausible is not the same as it being "
                   "correct.",
     }, {
-        "id": "dead_class_cannot_be_diagnosed", "verified": True,
-        "value": list(DEAD_CLASSES),
+        "id": "class_never_argmax_under_injection", "verified": True,
+        "value": list(NEVER_ARGMAX_UNDER_INJECTION),
         "detail": "fuel_pressure_dev appears in fault_probabilities with small "
                   "nonzero mass but never wins, including for direct fuel-flow "
                   "injections. One of five advertised labels is therefore "
-                  "undiagnosable. CASE 7 asserts it never becomes fault_label "
+                  "undiagnosable AT THESE OFFSETS -- it does win at near-zero "
+                  "residual. CASE 7 asserts it never becomes fault_label "
                   "instead of hiding it, and it must not be used in a demo.",
     }, {
         "id": "rul_collapses_under_injection", "verified": True,
@@ -627,17 +634,17 @@ def _self_test() -> None:
           f"every injection produced the same label {labels} -- the multiclass "
           f"stage is not discriminating between channels")
 
-    print("\nCASE 7  the dead class never wins")
+    print("\nCASE 7  the class that never wins under injection")
     everything = results + crossed
     dead_wins = [x.name for x in everything
-                 if str(x.fault_label) in DEAD_CLASSES]
-    mass = max((x.fault_probabilities.get(DEAD_CLASSES[0], 0.0)
+                 if str(x.fault_label) in NEVER_ARGMAX_UNDER_INJECTION]
+    mass = max((x.fault_probabilities.get(NEVER_ARGMAX_UNDER_INJECTION[0], 0.0)
                 for x in everything if x.fault_probabilities), default=0.0)
-    print(f"  {DEAD_CLASSES[0]}: max probability mass seen {mass:.4f}, "
+    print(f"  {NEVER_ARGMAX_UNDER_INJECTION[0]}: max probability mass seen {mass:.4f}, "
           f"times it won: {len(dead_wins)}")
     check(not dead_wins,
-          f"{DEAD_CLASSES[0]} was reported as the label for {dead_wins} -- it "
-          f"is a known dead class and must not be diagnosable")
+          f"{NEVER_ARGMAX_UNDER_INJECTION[0]} was reported as the label for {dead_wins} -- it "
+          f"is never argmax under injection at these offsets")
 
     print("\nCASE 8  RUL under injection, and the safety channel")
     for inj in results:

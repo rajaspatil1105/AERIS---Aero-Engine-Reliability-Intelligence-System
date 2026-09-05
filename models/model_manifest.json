@@ -67,7 +67,7 @@
     "gate performance is at chance (F1 0.676 == trivial baseline)",
     "multiclass label map recovered by experiment, not read from training code",
     "training script advertises a 6-label encoder; the artifact has 5 classes",
-    "class 'fuel_pressure_dev' is unreachable",
+    "class 'fuel_pressure_dev' is argmax at near-zero residual and never under large injection offsets; the earlier unqualified unreachable claim was wrong",
     "RUL R2 is negative and its units are unknown"
   ],
   "required_from_next_training_run": [

@@ -58,7 +58,10 @@ LABEL_PROVENANCE = (
     "CONFIRMED by directional response test (resolve_labels2.py). "
     "Not read from the training script."
 )
-DEAD_CLASSES = ("fuel_pressure_dev",)
+# Was ("fuel_pressure_dev",). Falsified 2026-09-05: the class is the argmax at
+# near-zero residual (CASE 5), the regime every real sensor frame occupies. The
+# original conclusion came from large single-channel fuelflow offsets only.
+DEAD_CLASSES: tuple = ()
 FALLBACK_CLASS = "lubrication_degradation"
 GATE_ANOMALY_CLASS = 1
 
@@ -286,13 +289,31 @@ def _self_test() -> None:
         c = f"{q.fault_confidence:.3f}" if q.fault_confidence else "  -  "
         print(f"  {fld:<20}{off:>+7.2f}  {lbl:<24} conf={c}")
 
-    print("\nCASE 5  dead class never appears")
-    if any(pred.predict(dict(p, **{f: p[f] + o})).fault_label == "fuel_pressure_dev"
-           for f, o in (("fuelflow_kgh", 2.0), ("fuelflow_kgh", 6.0),
-                        ("fuelflow_kgh", 9.0))):
-        print("  fuel_pressure_dev DID fire -- update DEAD_CLASSES")
-    else:
-        print("  fuel_pressure_dev never fired, as documented")
+    print("\nCASE 5  fuel_pressure_dev is reachable at near-zero residual")
+    # DEAD_CLASSES was concluded from large single-channel offsets (+2..+9 kg/h
+    # on a 10.58 kg/h baseline). That is the wrong regime: the class is the
+    # argmax at NEAR-ZERO residual, which is where every real sensor frame
+    # lands. Baselines memorised noiseless Cantera output, so healthy
+    # |residual| is 0.0 and +0.002 on five channels reaches p_anom
+    # 0.6604114156376172, above the 0.65 gate. Measured live over HTTP.
+    _MEAS = ("EGT_mean_C", "coolant_temp_C", "oil_pressure_bar",
+             "oil_temperature_C", "fuelflow_kgh")
+
+    exact = pred.predict(dict(p))
+    print(f"  exact deck     p_anom={exact.anomaly_probability:.16f} "
+          f"healthy={exact.is_healthy}")
+    if not exact.is_healthy:
+        fails.append("exact deck payload did not score healthy")
+
+    nudged = pred.predict({k: (v + 0.002 if k in _MEAS else v)
+                           for k, v in p.items()})
+    print(f"  all +0.002     p_anom={nudged.anomaly_probability:.16f} "
+          f"label={nudged.fault_label}")
+    if nudged.is_healthy:
+        fails.append("uniform +0.002 scored healthy; sensitivity claim stale")
+    if (nudged.fault_label == "fuel_pressure_dev"
+            and "fuel_pressure_dev" in DEAD_CLASSES):
+        fails.append("fuel_pressure_dev fired but is listed in DEAD_CLASSES")
 
     print("\nCASE 6  unmonitored channel is flagged, not assumed safe")
     q = pred.predict({k: v for k, v in p.items()})
@@ -309,7 +330,8 @@ def _self_test() -> None:
         raise SystemExit(1)
     print("\nPREDICTOR SELF-CHECK OK")
     print("NOTE: simulated offsets. Gate and RUL are statistically untrusted;")
-    print("      fuel_pressure_dev is unreachable in this artifact.")
+    print("      fuel_pressure_dev is argmax at near-zero residual (CASE 5),")
+    print("      never under large injection offsets (fault_injection CASE 7).")
 
 
 if __name__ == "__main__":
