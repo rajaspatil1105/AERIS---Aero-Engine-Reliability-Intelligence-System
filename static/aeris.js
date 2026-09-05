@@ -202,6 +202,7 @@ function link(up, why) {
 }
 
 async function tick() {
+  if (typeof RP !== "undefined" && RP.frozen) return;   // replay owns the panels
   let f;
   try {
     const r = await fetch("/live", { cache: "no-store" });

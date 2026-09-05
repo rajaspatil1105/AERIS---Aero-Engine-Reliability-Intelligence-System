@@ -39,3 +39,26 @@ ul.ev li{padding:2px 0 2px 7px;border-left:2px solid currentColor;
 #schem .phc{fill:none;stroke:#30363d;stroke-width:1;stroke-dasharray:2 2}
 #schem .phr{fill:none;stroke:#30363d;stroke-width:1;stroke-dasharray:3 3}
 #schem .pht{fill:#8b949e;font-size:7px;letter-spacing:.1em}
+#rp-bar{display:flex;align-items:center;gap:14px;padding:6px 12px;
+  background:#0e1524;border-bottom:1px solid var(--edge)}
+#rp-bar button{all:unset;cursor:pointer;padding:3px 9px;color:var(--dim);
+  border:1px solid var(--edge2);border-radius:2px;font:inherit;font-size:11px}
+#rp-bar button:hover{color:var(--acc);border-color:var(--acc)}
+#rp-bar button.on{color:var(--acc);border-color:var(--acc)}
+#rp-ses{background:#0a1020;color:var(--txt);border:1px solid var(--edge2);
+  font:inherit;font-size:11px;padding:1px 4px}
+#rp-scrub{flex:1;accent-color:var(--acc);height:3px}
+body.replay #untrusted::after{content:" | REPLAY: stored frames, not live"}
+#rp-strip{flex:1 1 auto;display:flex;gap:1px;height:16px;overflow:hidden}
+#rp-strip b{flex:1 1 auto;min-width:2px;max-width:9px;cursor:pointer;
+  background:#374151;border-radius:1px}
+#rp-strip b.ok{background:#16a34a}
+#rp-strip b.bad{background:#dc2626}
+#rp-strip b.wait{background:#2563eb}
+#rp-strip b.void{background:#4b5563}
+#rp-strip b.cur{outline:1px solid #22d3ee}
+#stage{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+#rp-bar{flex-shrink:0}
+#rp-bar{flex-wrap:wrap;row-gap:7px}
+#rp-strip{flex:0 0 100%;order:9;height:18px;gap:2px}
+#rp-strip b{max-width:16px}

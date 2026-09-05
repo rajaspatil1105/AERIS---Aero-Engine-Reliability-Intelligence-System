@@ -31,6 +31,21 @@
     <button class="tab ph" disabled><span>[C]</span>CONFIG</button>
   </nav>
 
+  <div id="stage">
+  <div id="rp-bar" style="display:none">
+    <span class="f"><i>SESSION</i>
+      <select id="rp-ses"></select></span>
+    <span class="f"><i>FRAME</i><b id="rp-pos">-- / --</b></span>
+    <button id="rp-first" title="first">&#124;&lt;</button>
+    <button id="rp-prev" title="step back">&lt;</button>
+    <button id="rp-play" title="play">&#9654;</button>
+    <button id="rp-next" title="step forward">&gt;</button>
+    <button id="rp-last" title="last">&gt;&#124;</button>
+    <input id="rp-scrub" type="range" min="0" max="0" value="0">
+    <span class="f"><i>STORED FRAME</i><b id="rp-stamp">--</b></span>
+        <div id="rp-strip"></div>
+
+  </div>
   <main id="grid">
     <section class="panel" style="grid-area:status">
       <h2>ENGINE STATUS <i>frame verdict</i></h2>
@@ -77,6 +92,7 @@
       <div class="body">single EGT_mean_C channel only<span class="tag">PLANNED</span></div>
     </section>
   </main>
+  </div>
 </div>
 
 <footer id="bar">
@@ -92,4 +108,5 @@
 
 <script src="schematic.js"></script>
 <script src="aeris.js"></script>
+<script src="replay.js"></script>
 </body></html>
