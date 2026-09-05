@@ -89,6 +89,8 @@ function diagnosis(f) {
 
   const bars = Object.keys(p).sort((a, b) => p[b] - p[a]).map((k) => {
     // NOT a dead class: it is the argmax at near-zero residual (predictor
+    // CASE 5), never under large injection offsets. Tagged, not hidden.
+    const nearZero = k === "fuel_pressure_dev";
     const w = (p[k] * 100).toFixed(1);
     return '<div class="pr' + (nearZero ? " ph" : "") + '"><span>' +
       k.replace(/_/g, " ") + (nearZero ? ' <span class="tag">NEAR-ZERO ARGMAX</span>' : "") +
