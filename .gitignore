@@ -56,3 +56,6 @@ desktop.ini
 # models/model_manifest.json  the model contract. Must be version-controlled.
 # reconstruction_config.json  feature schema, validated at startup.
 # models/classifier/feature_names.json
+static/*.old*
+static/*.bak*
+*.bak*
