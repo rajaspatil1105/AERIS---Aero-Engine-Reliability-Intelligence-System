@@ -1,4 +1,4 @@
-﻿:root{
+:root{
   --bg:#0a0e1a; --panel:#111827; --edge:#1f2937; --edge2:#30363d;
   --txt:#c9d1d9; --dim:#8b949e; --acc:#22d3ee;
   --ok:#3fb950; --adv:#e3b341; --fault:#ff7b31; --crit:#f85149;
@@ -36,14 +36,20 @@ b{font-weight:600;letter-spacing:.02em}
 .tab.on{color:var(--acc);border-left-color:var(--acc);background:#0d1424}
 .tab.on span{color:var(--acc)}
 
-#grid{flex:1;min-height:0;overflow:auto;padding:10px;display:grid;gap:10px;
-  grid-template-columns:repeat(4,1fr);
-  grid-template-rows:auto auto 1fr auto;
+/* ONE grid rule, in ONE file. Six columns, five rows, five area strings --
+   the counts must agree or rows collapse silently. Hierarchy: verdict band
+   read first, schematic answers "where", centre column carries cause then
+   evidence then trust, right column carries trend, bottom row is recessed
+   hardware that does not exist on this build. */
+#grid{flex:1;min-height:0;overflow:hidden;padding:10px;display:grid;gap:8px;
+  grid-template-columns:1.3fr 1.3fr 1.45fr 1.45fr 1.25fr 1.25fr;
+  grid-template-rows:auto minmax(112px,1.05fr) minmax(98px,1fr) minmax(78px,.85fr) 50px;
   grid-template-areas:
-    "status status gauges gauges"
-    "schem  schem  resid  resid"
-    "schem  schem  diag   rul"
-    "refuse refuse fft    cyl";}
+    "verdict verdict verdict verdict verdict verdict"
+    "schem   schem   diag    diag    rul     health"
+    "schem   schem   resid   resid   gauges  gauges"
+    "schem   schem   refuse  refuse  gauges  gauges"
+    "cht     egt     map     vib     elec    timing";}
 
 .panel{background:var(--panel);border:1px solid var(--edge);border-radius:2px;
   display:flex;flex-direction:column;min-height:70px;overflow:hidden}

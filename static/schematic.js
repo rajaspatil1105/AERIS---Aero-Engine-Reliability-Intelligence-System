@@ -25,7 +25,7 @@ const SCHEM_SVG = `
  <circle id="z-hub" cx="300" cy="176" r="17" fill="none" stroke="#8b949e"
    stroke-width="2"/>
  <text id="t-rpm" x="300" y="180" class="sv" text-anchor="middle">--</text>
- <text x="300" y="238" class="sl" text-anchor="middle">CRANK (no residual)</text>
+ <text x="300" y="230" class="sl" text-anchor="middle">CRANK (no residual)</text>
 
  <rect id="z-jug-1" x="182" y="74" width="88" height="42" rx="3"
    fill="#1f2937" stroke="#30363d"/>

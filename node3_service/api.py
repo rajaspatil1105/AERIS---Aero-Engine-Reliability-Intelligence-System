@@ -33,7 +33,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import (BaseModel, Field, field_validator,
                       model_validator)
@@ -486,6 +486,34 @@ def create_app() -> FastAPI:
         # pinned key set.
         return {**st.last_frame,
                 "session_id": st.store.session_id if st.store else None}
+
+    # Report exports live on their own routes. The frame response is pinned
+    # at 34 keys by CASE 12, so nothing here may be folded into a frame.
+    @app.get("/report/{session_id}.csv", tags=["report"])
+    def report_csv(session_id: int, st: ServiceState = Depends(get_state)):
+        from node3_service.report import session_csv
+        try:
+            text = session_csv(st.store, session_id)
+        except StoreError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return Response(
+            content=text, media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition":
+                     f'attachment; filename="aeris_session_{session_id}.csv"'})
+
+    @app.get("/report/{session_id}.pdf", tags=["report"])
+    def report_pdf(session_id: int, st: ServiceState = Depends(get_state)):
+        from node3_service.report import ReportError, session_pdf
+        try:
+            blob = session_pdf(st.store, session_id, manifest=st.manifest)
+        except StoreError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except ReportError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        return Response(
+            content=blob, media_type="application/pdf",
+            headers={"Content-Disposition":
+                     f'attachment; filename="aeris_session_{session_id}.pdf"'})
 
     return app
 

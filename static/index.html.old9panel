@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AERIS TACTICAL</title>
+<link rel="stylesheet" href="aeris.css?v=3">
+<link rel="stylesheet" href="aeris2.css?v=3">
+</head><body>
+
+<div id="untrusted">MODELS UNTRUSTED &mdash; gate F1 0.676 = trivial baseline
+  &middot; RUL R&sup2; &minus;0.103 &middot; placeholder models, plumbing
+  verified. Nothing here is airworthiness evidence.</div>
+
+<header id="strip">
+  <span class="brand">AERIS</span>
+  <span class="f"><i>UAV</i><b id="h-uav">ROTAX 915 iS</b></span>
+  <span class="f"><i>SYS</i><b id="h-sys">--</b></span>
+  <span class="f"><i>LATENCY</i><b id="h-lat">-- ms</b></span>
+  <span class="f"><i>MODE</i><b id="h-mode">LIVE</b></span>
+  <span class="f"><i>SESSION</i><b id="h-ses">--</b></span>
+  <span class="f"><i>UTC</i><b id="h-utc">--</b></span>
+  <span id="link" class="down">NO LINK</span>
+</header>
+
+<div id="shell">
+  <nav id="rail">
+    <button class="tab on" data-view="tactical"><span>[T]</span>TACTICAL</button>
+    <button class="tab" data-view="replay"><span>[R]</span>REPLAY</button>
+    <button class="tab" data-view="report"><span>[D]</span>REPORT</button>
+    <div class="rail-sp"></div>
+    <button class="tab ph" disabled><span>[C]</span>CONFIG</button>
+  </nav>
+
+  <div id="stage">
+  <div id="rp-bar" style="display:none">
+    <span class="f"><i>SESSION</i>
+      <select id="rp-ses"></select></span>
+    <span class="f"><i>FRAME</i><b id="rp-pos">-- / --</b></span>
+    <button id="rp-first" title="first">&#124;&lt;</button>
+    <button id="rp-prev" title="step back">&lt;</button>
+    <button id="rp-play" title="play">&#9654;</button>
+    <button id="rp-next" title="step forward">&gt;</button>
+    <button id="rp-last" title="last">&gt;&#124;</button>
+    <input id="rp-scrub" type="range" min="0" max="0" value="0">
+    <span class="f"><i>STORED FRAME</i><b id="rp-stamp">--</b></span>
+        <div id="rp-strip"></div>
+
+  </div>
+  <main id="grid">
+    <section class="panel" style="grid-area:status">
+      <h2>ENGINE STATUS <i>frame verdict</i></h2>
+      <div class="body" id="p-status"><span class="dim">awaiting first frame</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:gauges">
+      <h2>LIVE CHANNELS <i>9 measured</i></h2>
+      <div class="body" id="p-gauges"><span class="dim">awaiting first frame</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:schem">
+      <h2>ENGINE SCHEMATIC <i>residual tint</i></h2>
+      <div class="body" id="p-schem"><span class="dim">stage 2</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:resid">
+      <h2>RESIDUAL DELTA VECTOR <i>measured vs physics</i></h2>
+      <div class="body" id="p-resid"><span class="dim">stage 2</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:diag">
+      <h2>DIAGNOSIS <i>gate + multiclass</i></h2>
+      <div class="body" id="p-diag"><span class="dim">stage 2</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:rul">
+      <h2>RUL <i>ordering only</i></h2>
+      <div class="body" id="p-rul"><span class="dim">stage 2</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:refuse">
+      <h2>ADMISSION <i>steady-state gate</i></h2>
+      <div class="body" id="p-refuse"><span class="dim">stage 2</span></div>
+    </section>
+
+    <section class="panel placeholder" style="grid-area:fft">
+      <h2>VIBRATION FFT <i>not instrumented</i></h2>
+      <div class="body">no accelerometer on this build<span class="tag">PLANNED</span></div>
+    </section>
+
+    <section class="panel placeholder" style="grid-area:cyl">
+      <h2>PER-CYLINDER SPREAD <i>not instrumented</i></h2>
+      <div class="body">single EGT_mean_C channel only<span class="tag">PLANNED</span></div>
+    </section>
+  </main>
+  </div>
+</div>
+
+<footer id="bar">
+  <span class="f"><i>THROTTLE</i><b id="b-thr">--</b></span>
+  <span class="f"><i>RPM</i><b id="b-rpm">--</b></span>
+  <span class="f"><i>ALT</i><b id="b-alt">--</b></span>
+  <span class="f"><i>OAT</i><b id="b-oat">--</b></span>
+  <span class="f"><i>FRAMES</i><b id="b-cnt">0</b></span>
+  <span class="f"><i>POLL</i><b id="b-poll">500 ms</b></span>
+  <span class="f ph"><i>MAP</i><b>-- <span class="tag">PLANNED</span></b></span>
+  <span class="f ph"><i>VIB</i><b>-- <span class="tag">PLANNED</span></b></span>
+</footer>
+
+<script src="schematic.js?v=3"></script>
+<script src="aeris.js?v=3"></script>
+<script src="replay.js?v=3"></script>
+</body></html>

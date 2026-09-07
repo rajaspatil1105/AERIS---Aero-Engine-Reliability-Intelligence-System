@@ -1,4 +1,4 @@
-﻿.big{font-size:19px;letter-spacing:.05em;margin-bottom:3px}
+.big{font-size:19px;letter-spacing:.05em;margin-bottom:3px}
 #p-gauges{display:grid;grid-template-columns:repeat(3,1fr);gap:7px 14px}
 .g-h{display:flex;gap:6px;font-size:10px;color:var(--dim);letter-spacing:.06em}
 .g-h b{margin-left:auto;color:var(--txt);font-size:13px}
@@ -23,7 +23,6 @@ table.t td{text-align:right;padding:2px 5px;border-bottom:1px solid #0e1524}
 ul.ev{list-style:none;margin:6px 0 0;padding:0;font-size:10px}
 ul.ev li{padding:2px 0 2px 7px;border-left:2px solid currentColor;
   margin-bottom:3px;line-height:1.35}
-#grid{grid-template-rows:auto auto minmax(120px,1fr) auto}
 .panel .body{font-size:11px}
 #bar{flex-shrink:0}
 #shell{overflow:hidden}
@@ -62,9 +61,50 @@ body.replay #untrusted::after{content:" | REPLAY: stored frames, not live"}
 #rp-bar{flex-wrap:wrap;row-gap:7px}
 #rp-strip{flex:0 0 100%;order:9;height:18px;gap:2px}
 #rp-strip b{max-width:16px}
-#grid{grid-template-rows:auto auto minmax(152px,1fr) auto}
 [style*="grid-area:diag"] .pr{font-size:10px;margin-bottom:2px}
 [style*="grid-area:diag"] .g-t{height:3px}
 [style*="grid-area:diag"] .big{font-size:15px;margin-bottom:1px}
 [style*="grid-area:diag"] .warn{font-size:9px;line-height:1.25;padding:2px 5px}
-#grid{grid-template-rows:auto auto minmax(196px,1fr) auto}
+/* one rule, not four: the diagnosis panel must fit five classes plus the
+   near-chance caveat without scrolling -- hidden bars defeat the panel. */
+
+/* --- stage 3: verdict band + recessed hardware tiles ------------------- */
+#verdict{background:#0e1524;border-color:var(--edge2)}
+#verdict .body{padding:8px 12px;display:flex;flex-direction:column;
+  justify-content:center;overflow:hidden}
+#verdict .big{font-size:24px;letter-spacing:.06em}
+#verdict ul.ev{max-height:32px;overflow:auto;margin-top:4px}
+.tile h2{padding:3px 7px;font-size:9px}
+.tile .body{padding:4px 7px;display:flex;align-items:baseline;gap:6px}
+.tile .body b{font-size:14px;color:var(--dim)}
+#p-gauges{grid-template-columns:repeat(2,1fr);gap:6px 12px}
+/* Panels scroll internally; the grid itself never scrolls, so the tile row
+   cannot be pushed off the bottom edge on a short window. */
+.panel{overflow:auto;min-height:0}
+.panel::-webkit-scrollbar{width:6px;height:6px}
+.panel::-webkit-scrollbar-thumb{background:var(--edge2);border-radius:3px}
+.panel::-webkit-scrollbar-track{background:transparent}
+table.ph td,table.ph th{padding:1px 4px;line-height:1.3}
+.tile{padding:4px 6px}
+.tile .cap{font-size:9px}
+
+/* View switching: one visible root at a time. #grid is the tactical view. */
+.view{display:none;flex:1;min-height:0;overflow:auto;padding:12px}
+body.view-report #grid,body.view-config #grid{display:none}
+body.view-report #v-report{display:block}
+body.view-config #v-config{display:block}
+.rp-head{display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:1px solid var(--edge);padding-bottom:8px;margin-bottom:10px}
+.rp-title{font-size:15px;letter-spacing:.08em;color:var(--acc)}
+.rp-actions{display:flex;gap:8px;align-items:center}
+.btn{display:inline-block;padding:5px 11px;border:1px solid var(--edge2);
+  border-radius:2px;color:var(--txt);text-decoration:none;font-size:10px;
+  letter-spacing:.06em;background:#0d1220}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+
+.rep-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.rep-card{background:var(--panel);border:1px solid var(--edge);border-radius:2px;padding:9px 11px}
+.rep-card h3{margin:0 0 7px;font-size:10px;letter-spacing:.08em;color:var(--acc);font-weight:400}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:11px;padding:2px 0;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.kv i{color:var(--dim);font-style:normal}

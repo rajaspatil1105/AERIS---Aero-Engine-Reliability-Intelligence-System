@@ -124,7 +124,7 @@ function rulBlock(f) {
     " &middot; ordering only, not a time</div>" +
     '<div class="dim" style="margin-top:6px">smoothed ' + num(f.rul, 1) +
     " (EWMA, lags on one frame)</div>" +
-    '<div class="dim">trend ' + num(f.rul_trend_per_minute, 4) + "/min" +
+    '<div class="dim">trend ' + fine(f.rul_trend_per_minute) + "/min" +
           " &middot; to zero " + (isNum(f.rul_minutes_to_zero) &&
       Math.abs(f.rul_minutes_to_zero) < 1e6 ?
       num(f.rul_minutes_to_zero, 1) + " min" : "n/a (trend ~0)") + "</div>" +
@@ -171,8 +171,9 @@ function render(f) {
   $("h-sys").textContent = f.status || "--";
   $("h-sys").className = cls;
   $("h-lat").textContent = num(f.latency_ms, 2) + " ms";
-  $("h-ses").textContent = isNum(f.session_id) ? f.session_id : "--";
+  // replay owns this field while it is driving; stored rows carry no session_id
   $("h-utc").textContent = utc(f.timestamp);
+  if (!replayOn()) $("h-ses").textContent = isNum(f.session_id) ? f.session_id : "--";
 
   const adv = (f.advisories || []).map((a) =>
     '<li class="s-ADVISORY">' + esc(a) + "</li>").join("");
@@ -203,6 +204,68 @@ function render(f) {
   $("b-cnt").textContent = frames;
 }
 
+// ---- COLD STATE ------------------------------------------------------
+// No engine, no frame, server down: the shell STAYS. An operator navigates
+// by panel position, so panels never collapse to a sentence -- every row
+// keeps its label and unit and reads "--". No invented values anywhere.
+const RESID_CHANNELS = ["EGT_mean_C", "coolant_temp_C", "fuelflow_kgh",
+                        "oil_pressure_bar", "oil_temperature_C"];
+const FAULT_CLASSES = ["cooling_degradation", "fuel_pressure_dev",
+                       "lubrication_degradation", "misfire", "sensor_drift"];
+
+function coldTable() {
+  const rows = RESID_CHANNELS.map((k) =>
+    "<tr><td>" + k.replace(/_/g, " ") +
+    "</td><td>--</td><td>--</td><td>--</td><td>--</td></tr>").join("");
+  return '<table class="t ph"><thead><tr><th>channel</th><th>measured</th>' +
+    "<th>physics</th><th>delta</th><th>|res|</th></tr></thead><tbody>" +
+    rows + "</tbody></table>";
+}
+
+function coldBars() {
+  return FAULT_CLASSES.map((k) =>
+    '<div class="pr ph"><span>' + k.replace(/_/g, " ") + "</span><b>--</b>" +
+    '<div class="g-t"><div class="g-f" style="width:0%"></div></div></div>'
+  ).join("");
+}
+
+// Single owner for the SESSION header: replay writes it while scrubbing,
+// live and cold-state write it the rest of the time. Two writers = "--" wins.
+function replayOn() {
+  const b = document.getElementById("rp-bar");
+  return !!b && b.style.display !== "none";
+}
+
+function renderCold(why) {
+  $("p-status").innerHTML =
+    '<div class="big s-UNAVAILABLE">NO ENGINE</div>' +
+    '<div class="dim">' + esc(why || "no telemetry source connected") +
+    "</div>" +
+    '<div class="dim" style="margin-top:5px">in_envelope=-- &middot; ' +
+    "ml_evaluated=-- &middot; safety_alert=--</div>";
+  $("p-gauges").innerHTML = gauges({});
+  $("p-resid").innerHTML = coldTable();
+  $("p-diag").innerHTML =
+    '<div class="big s-UNAVAILABLE">--</div>' +
+    '<div class="dim">no frame scored</div>' + coldBars();
+  $("p-rul").innerHTML =
+    '<div class="big s-UNAVAILABLE">--</div>' +
+    '<div class="dim">rul_raw &middot; units unknown &middot; ordering only, ' +
+    "not a time</div>" +
+    '<div class="dim">smoothed -- &middot; trend --/min</div>';
+  $("p-refuse").innerHTML =
+    '<div class="s-UNAVAILABLE">NOT EVALUATED</div>' +
+    '<div class="dim">the admission gate runs on the first frame</div>';
+  paintSchematic({});
+  $("h-sys").textContent = "--";
+  $("h-lat").textContent = "-- ms";
+  $("h-utc").textContent = "--";
+  if (!replayOn()) $("h-ses").textContent = "--";
+  ["b-thr", "b-rpm", "b-alt", "b-oat"].forEach((k) => {
+    const el = $(k); if (el) el.textContent = "--";
+  });
+}
+
 function link(up, why) {
   const el = $("link");
   el.className = up ? "up" : "down";
@@ -214,13 +277,13 @@ async function tick() {
   let f;
   try {
     const r = await fetch("/live", { cache: "no-store" });
-    if (!r.ok) { link(false, "HTTP " + r.status); return; }
+    if (!r.ok) { link(false, "HTTP " + r.status); renderCold("no frame processed yet (HTTP " + r.status + ")"); return; }
     f = await r.json();
   } catch (e) {
-    if (++misses > 2) { link(false); document.body.classList.add("stale"); }
+    if (++misses > 2) { link(false); document.body.classList.add("stale"); renderCold("service unreachable"); }
     return;
   }
-  if (!f || !f.status) { link(false, "NO FRAME"); return; }
+  if (!f || !f.status) { link(false, "NO FRAME"); renderCold("no frame yet"); return; }
   if (!logged) { console.log("/live keys:", Object.keys(f).length, Object.keys(f).sort()); logged = true; }
   frames++; misses = 0;
   document.body.classList.remove("stale");
@@ -240,3 +303,137 @@ document.querySelectorAll(".tab:not(.ph)").forEach((b) => {
 
 tick();
 setInterval(tick, POLL_MS);
+
+// ---- view switching -------------------------------------------------
+// Tabs previously only relabelled the header, so REPORT rendered the
+// tactical grid with the replay bar still open. One body class now owns
+// which root is visible; replay is force-exited on the way out.
+function showView(v) {
+  document.body.classList.remove("view-report", "view-config");
+  if (v === "report" || v === "config") document.body.classList.add("view-" + v);
+  const hm = document.getElementById("h-mode");
+  if (hm) hm.textContent = v.toUpperCase();
+}
+
+document.querySelectorAll(".tab[data-view]").forEach((b) => {
+  b.addEventListener("click", () => {
+    const v = (b.dataset.view || "tactical").toLowerCase();
+    if (v !== "replay" && typeof RP !== "undefined" && RP.on
+        && typeof rpExit === "function") rpExit();
+    showView(v);
+    if (v === "report" && typeof repLoad === "function") repLoad();
+    if (v === "config" && typeof cfgLoad === "function") cfgLoad();
+  });
+});
+
+// ---- report + config views -----------------------------------------
+// Downloads are plain anchors: the browser streams the file straight from
+// the API. href="#" would make `download` save this page instead, which is
+// exactly what happened before these were wired.
+var REP = { ses: null, loaded: false };
+
+function repRow(k, v) {
+  return '<div class="kv"><i>' + esc(k) + "</i><b>" + esc(String(v)) + "</b></div>";
+}
+
+async function repRender(sid) {
+  REP.ses = sid;
+  $("rep-csv").href = "/report/" + sid + ".csv";
+  $("rep-pdf").href = "/report/" + sid + ".pdf";
+  var b = $("rep-body");
+  try {
+    var r = await fetch("/summary?session_id=" + sid, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var s = await r.json();
+    var sc = s.status_counts || {}, ec = s.event_counts || {};
+    var tot = s.frames || 0, h = "", k;
+
+    $("rep-sub").textContent =
+      "session " + sid + "  \u00b7  " + tot + " frames  \u00b7  " +
+      String(s.started_utc || "--").slice(0, 19).replace("T", " ") +
+      (s.ended_utc ? "" : "  (open)");
+
+    h += '<div class="rep-grid">';
+    h += '<div class="rep-card"><h3>FRAME DISPOSITION</h3>';
+    for (k in sc) h += repRow(k, sc[k] + "  (" +
+      (tot ? (sc[k] / tot * 100).toFixed(1) : "0.0") + "%)");
+    if (!Object.keys(sc).length) h += '<div class="dim">no frames</div>';
+    h += "</div>";
+
+    h += '<div class="rep-card"><h3>EVENTS</h3>';
+    for (k in ec) h += repRow(k, ec[k]);
+    if (!Object.keys(ec).length) h += '<div class="dim">none recorded</div>';
+    h += "</div>";
+
+    h += '<div class="rep-card"><h3>PROVENANCE</h3>';
+    h += repRow("data", s.data_provenance || "--");
+    h += repRow("models_trusted", String(!!s.models_trusted));
+    h += repRow("sklearn", s.sklearn_version || "--");
+    h += repRow("manifest", String(s.manifest_sha256 || "--").slice(0, 16) + "...");
+    h += "</div></div>";
+
+    h += '<div class="warn" style="margin-top:10px">Exports carry the same ' +
+         'caveats as the live panels. The PDF states on its cover that these ' +
+         'models are unvalidated placeholders.</div>';
+    b.innerHTML = h;
+  } catch (e) {
+    b.innerHTML = '<div class="warn">summary failed: ' + esc(e.message) + "</div>";
+  }
+}
+
+async function repLoad() {
+  var sel = $("rep-ses");
+  try {
+    var r = await fetch("/sessions", { cache: "no-store" });
+    var d = await r.json(), list = d.sessions || [], h = "", i, s;
+    if (!list.length) {
+      $("rep-body").innerHTML = '<div class="dim">no sessions recorded yet</div>';
+      $("rep-sub").textContent = "nothing to report";
+      return;
+    }
+    for (i = 0; i < list.length; i++) {
+      s = list[i];
+      h += '<option value="' + s.id + '">' + s.id + "  " +
+           String(s.started_utc).slice(0, 19).replace("T", " ") +
+           (s.ended_utc ? "" : "  (open)") + "</option>";
+    }
+    sel.innerHTML = h;
+    if (!REP.loaded) {
+      sel.onchange = function () { repRender(parseInt(this.value, 10)); };
+      REP.loaded = true;
+    }
+    await repRender(parseInt(sel.value, 10));
+  } catch (e) {
+    $("rep-body").innerHTML = '<div class="warn">/sessions failed: ' +
+      esc(e.message) + "</div>";
+  }
+}
+
+async function cfgLoad() {
+  var b = $("cfg-body");
+  try {
+    var m = await (await fetch("/manifest", { cache: "no-store" })).json();
+    var c = await (await fetch("/caveats", { cache: "no-store" })).json();
+    var h = '<div class="rep-grid">';
+    h += '<div class="rep-card"><h3>BUILD</h3>';
+    h += repRow("manifest version", m.version || m.manifest_version || "--");
+    h += repRow("models_trusted", String(!!m.models_trusted));
+    h += repRow("sklearn", m.sklearn_version || "--");
+    h += "</div>";
+    h += '<div class="rep-card"><h3>TRAINED ENVELOPE</h3>';
+    var env = m.envelope || (m.baseline && m.baseline.envelope) || {};
+    for (var k in env) h += repRow(k, "[" + env[k][0] + ", " + env[k][1] + "]");
+    if (!Object.keys(env).length)
+      h += '<div class="dim">not exposed by /manifest</div>';
+    h += "</div></div>";
+    h += '<div class="rep-card" style="margin-top:10px"><h3>CAVEATS</h3>';
+    var cav = c.caveats || c;
+    for (var q in cav)
+      h += '<div style="margin-bottom:7px"><b>' + esc(q) + "</b><br>" +
+           '<span class="dim">' + esc(String(cav[q]).slice(0, 600)) + "</span></div>";
+    h += "</div>";
+    b.innerHTML = h;
+  } catch (e) {
+    b.innerHTML = '<div class="warn">config load failed: ' + esc(e.message) + "</div>";
+  }
+}
