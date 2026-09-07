@@ -16,6 +16,12 @@ const ORDER = Object.keys(RANGE);
 
 const isNum = (v) => typeof v === "number" && isFinite(v);
 const num = (v, d = 1) => isNum(v) ? v.toFixed(d) : "--";
+// Residual precision matters: the gate fires on ~0.002 units (predictor CASE
+// 5), which two decimals renders as 0.00 -- the panel that carries the verdict
+// must not hide the quantity that caused it.
+const fine = (v) => !isNum(v) ? "--" : v === 0 ? "0" :
+  Math.abs(v) < 0.01 ? v.toExponential(1) : v.toFixed(3);
+const signed = (v) => !isNum(v) ? "--" : (v > 0 ? "+" : "") + fine(v);
 const esc = (s) => String(s).replace(/[&<>]/g, (c) =>
   ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
 
@@ -65,10 +71,10 @@ function residuals(f) {
     // can tell hot from cold. Never infer direction from res[k] alone.
     const d = (isNum(m) && isNum(e)) ? m - e : null;
     const cls = flagged(k, f) ? "s-ADVISORY" : "s-HEALTHY";
-    return "<tr><td>" + k.replace(/_/g, " ") + "</td><td>" + num(m, 2) +
-      "</td><td>" + num(e, 2) + '</td><td class="' + cls + '">' +
-      (isNum(d) ? (d > 0 ? "+" : "") + d.toFixed(2) : "--") +
-      "</td><td>" + num(res[k], 2) + "</td></tr>";
+    return "<tr><td>" + k.replace(/_/g, " ") + "</td><td>" + num(m, 3) +
+      "</td><td>" + num(e, 3) + '</td><td class="' + cls + '">' +
+      signed(d) +
+      "</td><td>" + fine(res[k]) + "</td></tr>";
   }).join("");
     return (void_ ? '<div class="warn">frame refused: these physics values are ' +
     'extrapolated outside the trained deck range and are NOT a baseline. ' +
@@ -165,7 +171,7 @@ function render(f) {
   $("h-sys").textContent = f.status || "--";
   $("h-sys").className = cls;
   $("h-lat").textContent = num(f.latency_ms, 2) + " ms";
-  $("h-ses").textContent = frames;
+  $("h-ses").textContent = isNum(f.session_id) ? f.session_id : "--";
   $("h-utc").textContent = utc(f.timestamp);
 
   const adv = (f.advisories || []).map((a) =>

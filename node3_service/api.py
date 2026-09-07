@@ -224,7 +224,6 @@ def _process_and_store(st: ServiceState, payload: dict[str, float]) -> dict[str,
         raise HTTPException(status_code=500,
                             detail=f"persistence failed: {exc}") from exc
     st.frames_processed += 1
-    st.last_frame = frame
     st.prev_monotonic = now
     if (st.prev_payload is not None
             and st.prev_payload["throttle_pct"] != payload["throttle_pct"]):
@@ -233,6 +232,9 @@ def _process_and_store(st: ServiceState, payload: dict[str, float]) -> dict[str,
     out = dict(frame)
     out["seq"] = seq
     out["models_trusted"] = False
+    # /live serves this object, so it must be the response dict, which
+    # carries seq and models_trusted. The store dict does not.
+    st.last_frame = out
     return out
 
 
@@ -479,7 +481,11 @@ def create_app() -> FastAPI:
         """Last processed frame, for a dashboard poll without WebSockets."""
         if st.last_frame is None:
             raise HTTPException(404, "no frame processed yet")
-        return st.last_frame
+        # session is state-scoped, not frame-scoped; merged here so the
+        # header needs no second request and the stored frame keeps its
+        # pinned key set.
+        return {**st.last_frame,
+                "session_id": st.store.session_id if st.store else None}
 
     return app
 
