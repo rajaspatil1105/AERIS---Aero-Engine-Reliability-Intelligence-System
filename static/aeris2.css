@@ -90,9 +90,10 @@ table.ph td,table.ph th{padding:1px 4px;line-height:1.3}
 
 /* View switching: one visible root at a time. #grid is the tactical view. */
 .view{display:none;flex:1;min-height:0;overflow:auto;padding:12px}
-body.view-report #grid,body.view-config #grid{display:none}
+body.view-report #grid,body.view-config #grid,body.view-sim #grid{display:none}
 body.view-report #v-report{display:block}
 body.view-config #v-config{display:block}
+body.view-sim #v-sim{display:block}
 .rp-head{display:flex;justify-content:space-between;align-items:flex-end;
   border-bottom:1px solid var(--edge);padding-bottom:8px;margin-bottom:10px}
 .rp-title{font-size:15px;letter-spacing:.08em;color:var(--acc)}

@@ -3,8 +3,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AERIS TACTICAL</title>
-<link rel="stylesheet" href="aeris.css?v=6">
-<link rel="stylesheet" href="aeris2.css?v=6">
+<link rel="stylesheet" href="aeris.css?v=8">
+<link rel="stylesheet" href="aeris2.css?v=8">
 </head><body>
 
 <div id="untrusted">MODELS UNTRUSTED &mdash; gate F1 0.676 = trivial baseline
@@ -26,6 +26,7 @@
   <nav id="rail">
     <button class="tab on" data-view="tactical"><span>[T]</span>TACTICAL</button>
     <button class="tab" data-view="replay"><span>[R]</span>REPLAY</button>
+    <button class="tab" data-view="sim"><span>[S]</span>SIMULATION</button>
     <button class="tab" data-view="report"><span>[D]</span>REPORT</button>
     <div class="rail-sp"></div>
     <button class="tab" data-view="config"><span>[C]</span>CONFIG</button>
@@ -127,6 +128,49 @@
   <div id="rep-body"><div class="dim">loading…</div></div>
 </section>
 
+<section id="v-sim" class="view">
+  <div class="rp-head">
+    <div><div class="rp-title">MISSION SIMULATION</div>
+      <div class="dim">preset operating points inside the trained envelope</div></div>
+  </div>
+  <div class="rep-grid">
+    <div class="rep-card"><h3>OPERATING POINT</h3>
+      <div class="kv"><span>preset</span><select id="sm-preset">
+        <option value="climb">climb power 95% 6000 ft 10 C</option>
+        <option value="cruise" selected>high cruise 80% 6000 ft 10 C</option>
+        <option value="econ">econ cruise 70% 8000 ft 6 C</option>
+      </select></div>
+      <div class="kv"><span>mission length (s)</span>
+        <input id="sm-dur" type="number" value="300" min="30" step="10"></div>
+      <div class="kv"><span>speed</span><select id="sm-rate">
+        <option value="1">1x realtime</option><option value="2">2x</option>
+        <option value="5">5x</option></select></div>
+    </div>
+    <div class="rep-card"><h3>FAULT INJECTION</h3>
+      <div class="kv"><span>fault</span><select id="sm-fault">
+        <option value="none">none (healthy mission)</option>
+        <option value="cooling" selected>cooling degradation</option>
+        <option value="lubrication">lubrication degradation</option>
+        <option value="fuel">fuel pressure deviation</option>
+      </select></div>
+      <div class="kv"><span>onset (s)</span>
+        <input id="sm-onset" type="number" value="60" min="0" step="10"></div>
+      <div class="kv"><span>clears after (s)</span>
+        <input id="sm-clear" type="number" value="180" min="0" step="10"></div>
+    </div>
+    <div class="rep-card"><h3>RUN</h3>
+      <div class="rp-actions">
+        <button id="sm-start" class="btn">START</button>
+        <button id="sm-stop" class="btn">STOP</button></div>
+      <div id="sm-log" class="dim" style="margin-top:8px">idle</div>
+    </div>
+  </div>
+  <div class="rep-card" style="margin-top:10px"><h3>NOTE</h3>
+    <div class="dim">Presets are operating points the twin was trained on.
+    Level flight only, constant throttle. Frames post to the same /frames
+    endpoint as any other source; switch to TACTICAL to watch them arrive.</div>
+  </div>
+</section>
 <section id="v-config" class="view">
   <div class="rp-title">CONFIG / ABOUT</div>
   <div id="cfg-body"><div class="dim">loading…</div></div>
@@ -145,7 +189,8 @@
   <span class="f ph"><i>VIB</i><b>-- <span class="tag">PLANNED</span></b></span>
 </footer>
 
-<script src="schematic.js?v=6"></script>
-<script src="aeris.js?v=6"></script>
-<script src="replay.js?v=6"></script>
+<script src="schematic.js?v=8"></script>
+<script src="aeris.js?v=8"></script>
+<script src="replay.js?v=8"></script>
+<script src="sim.js?v=8"></script>
 </body></html>

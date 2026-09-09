@@ -309,8 +309,8 @@ setInterval(tick, POLL_MS);
 // tactical grid with the replay bar still open. One body class now owns
 // which root is visible; replay is force-exited on the way out.
 function showView(v) {
-  document.body.classList.remove("view-report", "view-config");
-  if (v === "report" || v === "config") document.body.classList.add("view-" + v);
+  document.body.classList.remove("view-report", "view-config", "view-sim");
+  if (v === "report" || v === "config" || v === "sim") document.body.classList.add("view-" + v);
   const hm = document.getElementById("h-mode");
   if (hm) hm.textContent = v.toUpperCase();
 }
