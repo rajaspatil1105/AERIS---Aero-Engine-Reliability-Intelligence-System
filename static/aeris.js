@@ -1,5 +1,15 @@
 "use strict";
 const POLL_MS = 500, SETTLE_S = 100;
+// Frames stored before this page loaded are history, not telemetry. /live
+// echoes the newest DB row, which outlives the page; without this the UI
+// resurrects the last frame of a finished session on every reload.
+const BOOT_MS = Date.now();
+function frameMs(f) {
+  if (typeof f.timestamp === "number" && isFinite(f.timestamp))
+    return f.timestamp * 1000;
+  if (typeof f.ts_utc === "string") { var v = Date.parse(f.ts_utc); if (!isNaN(v)) return v; }
+  return null;
+}
 const $ = (id) => document.getElementById(id);
 let frames = 0, misses = 0, logged = false;
 
@@ -284,6 +294,12 @@ async function tick() {
     return;
   }
   if (!f || !f.status) { link(false, "NO FRAME"); renderCold("no frame yet"); return; }
+  var fms = frameMs(f);
+  if (fms !== null && fms < BOOT_MS) {
+    link(false, "NO LINK");
+    renderCold("no live engine - newest stored frame predates this page load");
+    return;
+  }
   if (!logged) { console.log("/live keys:", Object.keys(f).length, Object.keys(f).sort()); logged = true; }
   frames++; misses = 0;
   document.body.classList.remove("stale");
