@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-11T18:21:30+00:00",
+  "generated_at_utc": "2026-09-11T18:25:49+00:00",
   "sklearn_version_at_build": "1.9.0",
   "data_provenance": {
     "source": "Cantera simulation, synthetic",
@@ -61,7 +61,7 @@
   "explainability": {
     "gate": "shap.TreeExplainer (exact)",
     "fault_classifier": "shap.explainers.Permutation",
-    "note": "Both artifacts are HistGradientBoostingClassifier as of 2026-09-11. Verify TreeExplainer accepts them before relying on exact attribution; SHAP support for sklearn histogram boosting is version-dependent and the service falls back to Permutation if construction fails."
+    "note": "Both artifacts are HistGradientBoostingClassifier as of 2026-09-11. shap.TreeExplainer verified working on the multiclass artifact under shap 0.51.0 (exact, rows x 14 features x 5 classes); Permutation retained only as a fallback."
   },
   "open_issues": [
     "RUL R2 is negative and its units are unknown; out of scope until Stage 8 supplies real degradation histories",

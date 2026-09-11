@@ -228,11 +228,7 @@ def main() -> int:
         "explainability": {
             "gate": "shap.TreeExplainer (exact)",
             "fault_classifier": "shap.explainers.Permutation",
-            "note": "Both artifacts are HistGradientBoostingClassifier as of "
-                    "2026-09-11. Verify TreeExplainer accepts them before "
-                    "relying on exact attribution; SHAP support for sklearn "
-                    "histogram boosting is version-dependent and the service "
-                    "falls back to Permutation if construction fails.",
+            "note": "Both artifacts are HistGradientBoostingClassifier as of 2026-09-11. shap.TreeExplainer verified working on the multiclass artifact under shap 0.51.0 (exact, rows x 14 features x 5 classes); Permutation retained only as a fallback.",
         },
         "open_issues": [
             "RUL R2 is negative and its units are unknown; out of scope until "
