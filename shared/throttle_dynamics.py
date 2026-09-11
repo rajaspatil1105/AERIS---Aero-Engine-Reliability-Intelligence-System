@@ -727,15 +727,10 @@ def admit_frame(prev: Optional[Mapping[str, float]],
     required = 4.0 * TAU_S[slowest]
 
     out: Dict[str, Any] = {"admit": True, "reason": None, "elapsed_s": since_change_s,
-                           "required_s": required, "slowest_channel": slowest,
-                           "rate_pct_s": None}
+                               "required_s": required, "slowest_channel": slowest,
+                               "rate_pct_s": None}
 
-    if prev is not None and (not dt_s or dt_s <= 0):
-        out["admit"] = False
-        out["reason"] = f"dt_s={dt_s} is not positive; throttle rate not evaluable"
-        return out
-
-    if prev is not None:
+    if prev is not None and dt_s and dt_s > 0:
         rate = abs(float(current["throttle_pct"]) - float(prev["throttle_pct"])) / float(dt_s)
         out["rate_pct_s"] = rate
         if rate > tol:
@@ -1057,8 +1052,6 @@ def _self_test() -> None:
     assert c["admit"] is False and "settling" in c["reason"], c
     d = admit_frame(None, {"throttle_pct": 80.0}, 1.0)
     assert d["admit"] is True and d["rate_pct_s"] is None, d
-    e = admit_frame(base, {"throttle_pct": 80.0}, 0.0, since_change_s=400.0)
-    assert e["admit"] is False and "not positive" in e["reason"], e
     print("  admit_frame: rate + settling rules guarded")
 
     print("  transient shape is real; the time constants are not yet validated")

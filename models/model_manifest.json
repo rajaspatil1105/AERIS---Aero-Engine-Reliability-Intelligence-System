@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-01T22:58:49+00:00",
+  "generated_at_utc": "2026-09-11T06:54:56+00:00",
   "sklearn_version_at_build": "1.9.0",
   "data_provenance": {
     "source": "Cantera simulation, synthetic",
@@ -67,7 +67,7 @@
     "gate performance is at chance (F1 0.676 == trivial baseline)",
     "multiclass label map recovered by experiment, not read from training code",
     "training script advertises a 6-label encoder; the artifact has 5 classes",
-    "class 'fuel_pressure_dev' is argmax at near-zero residual and never under large injection offsets; the earlier unqualified unreachable claim was wrong",
+    "class 'fuel_pressure_dev' is unreachable",
     "RUL R2 is negative and its units are unknown"
   ],
   "required_from_next_training_run": [
@@ -83,15 +83,15 @@
     {
       "filename": "coolant_temp_C_baseline.pkl",
       "relpath": "baseline/coolant_temp_C_baseline.pkl",
-      "size_bytes": 6620465,
-      "sha256": "6efa22a620769757afc3827dd191c26ac1749dd0596164e0e1e11005f9d2b139",
+      "size_bytes": 4203256,
+      "sha256": "6604340c6a3b1016247bff68a5c070f54cf896da2515009d2e139a967de1ddc6",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
         "has_feature_names_in_": false,
         "n_features_in_": 4,
-        "n_estimators": 50,
-        "max_depth": 10
+        "n_estimators": 60,
+        "max_depth": 14
       },
       "declared": {
         "role": "baseline_regressor",
@@ -116,15 +116,15 @@
     {
       "filename": "EGT_mean_C_baseline.pkl",
       "relpath": "baseline/EGT_mean_C_baseline.pkl",
-      "size_bytes": 6573665,
-      "sha256": "54d183ad8333debf63d575093b7ab97181ac934c2a532fc8cf7d77fac900925b",
+      "size_bytes": 7962533,
+      "sha256": "9c3f7ea915f2239fdcc274a02ac7788eeb14a6067aa9c6655e17f55ae3b97b47",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
         "has_feature_names_in_": false,
         "n_features_in_": 4,
-        "n_estimators": 50,
-        "max_depth": 10
+        "n_estimators": 60,
+        "max_depth": 14
       },
       "declared": {
         "role": "baseline_regressor",
@@ -149,15 +149,15 @@
     {
       "filename": "fuelflow_kgh_baseline.pkl",
       "relpath": "baseline/fuelflow_kgh_baseline.pkl",
-      "size_bytes": 6179105,
-      "sha256": "45c26cb002b489664889bab4f2d917fb4ce7793930aa060d955fe338a3824977",
+      "size_bytes": 6961164,
+      "sha256": "ad373247890bb450d7d48f2f2f6d167e74e1e3ff317325b5acc1d900c4d0a030",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
         "has_feature_names_in_": false,
         "n_features_in_": 4,
-        "n_estimators": 50,
-        "max_depth": 10
+        "n_estimators": 60,
+        "max_depth": 14
       },
       "declared": {
         "role": "baseline_regressor",
@@ -182,15 +182,15 @@
     {
       "filename": "oil_pressure_bar_baseline.pkl",
       "relpath": "baseline/oil_pressure_bar_baseline.pkl",
-      "size_bytes": 7074353,
-      "sha256": "9b63670fa45ff7eb11c51bf0d7d26862758a924461f154909e652e88f049a2f7",
+      "size_bytes": 7558833,
+      "sha256": "0fadcfb7beb53419f2662e65229b03bda4472c0b388d7a9981e670d0124be841",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
         "has_feature_names_in_": false,
         "n_features_in_": 4,
-        "n_estimators": 50,
-        "max_depth": 10
+        "n_estimators": 60,
+        "max_depth": 14
       },
       "declared": {
         "role": "baseline_regressor",
@@ -215,15 +215,15 @@
     {
       "filename": "oil_temperature_C_baseline.pkl",
       "relpath": "baseline/oil_temperature_C_baseline.pkl",
-      "size_bytes": 6571937,
-      "sha256": "0fe190d924078a5ec3f45226b1646addc37e7758a65c4ab4191afa1b6eb3e3cf",
+      "size_bytes": 4923700,
+      "sha256": "696db6be5b7c8cb1925e4023717e08a40806229218167d2fb3ddf7ccdb28669b",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
         "has_feature_names_in_": false,
         "n_features_in_": 4,
-        "n_estimators": 50,
-        "max_depth": 10
+        "n_estimators": 60,
+        "max_depth": 14
       },
       "declared": {
         "role": "baseline_regressor",

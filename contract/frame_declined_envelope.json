@@ -1,3 +1,5 @@
+cd C:\Users\patil\OneDrive\Desktop\AERIS---Aero-Engine-Reliability-Intelligence-System
+C:\venvs\aeris_verify\Scripts\python.exe -m uvicorn node3_service.api:app --host 127.0.0.1 --port 8000
 {
   "request": {
     "altitude_ft": 6000.0,
