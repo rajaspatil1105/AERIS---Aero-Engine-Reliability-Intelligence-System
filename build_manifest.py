@@ -120,13 +120,17 @@ def declared_for(name: str) -> dict:
             "input_order_provenance": "config file + feature_names.json (14/14 validated)",
             "anomaly_class": 1,
             "decision_threshold": 0.65,
-            "metrics": {"precision": 0.511, "recall": 0.998, "f1": 0.676,
-                        "accuracy": 0.5286, "positive_class_prior": 0.511},
-            "metrics_provenance": "training_pipeline",
-            "trusted": False,
-            "caveat": "F1 equals the trivial always-positive baseline; output is near chance. "
-                      "Disabled as a sole decision source; retrain on the multiclass matrix "
-                      "with labels collapsed to healthy / not-healthy.",
+            "metrics": {"precision": 0.9130, "recall": 0.7730, "f1": 0.8372,
+                        "specificity": 0.8983, "balanced_accuracy": 0.8356,
+                        "roc_auc": 0.9295, "test_positive_prevalence": 0.580},
+            "metrics_provenance": "train_classifiers.py 2026-09-11, held-out "
+                                  "engines 0241-0250 + 0285-0290 (76,577 rows)",
+            "trusted": True,
+            "caveat": "Retrained 2026-09-11 on in-window fault labels. At the served "
+                      "0.65 threshold ~10% of healthy frames raise a false advisory "
+                      "and mild faults are missed ~27% of the time. The baseline deck "
+                      "is a steady-state fit, so throttle transients inflate residuals "
+                      "and the false-alarm rate rises on rapid-throttle segments.",
         }
     if name == "fault_classifier_multiclass.pkl":
         return {
@@ -134,12 +138,24 @@ def declared_for(name: str) -> dict:
             "input_order": FEATURE_ORDER,
             "input_order_provenance": "config file + feature_names.json (14/14 validated)",
             "label_map": CLASS_INDEX_MAP,
-            "label_map_provenance": "recovered_by_experiment (resolve_labels2.py directional sweep)",
-            "dead_classes": ["fuel_pressure_dev"],
+            "label_map_provenance": "train_classifiers.py CLASS_INDEX, matches "
+                                    "predictor.CLASS_INDEX_MAP exactly",
+            "dead_classes": [],
+            "metrics": {"accuracy": 0.7442, "macro_f1": 0.7351,
+                        "per_class_recall": {"cooling_degradation": 0.6279,
+                                             "fuel_pressure_dev": 0.7897,
+                                             "lubrication_degradation": 0.9186,
+                                             "misfire": 0.9007,
+                                             "sensor_drift": 0.4727}},
+            "metrics_provenance": "train_classifiers.py 2026-09-11, held-out "
+                                  "engines 0285-0290 (44,420 faulted rows)",
             "trusted": False,
-            "caveat": "label map inferred, not read from training code; class "
-                      "'fuel_pressure_dev' is never argmax for any fuel-flow excursion; "
-                      "responses saturate at the first offset step so severity is not resolved.",
+            "caveat": "No dead classes as of the 2026-09-11 retrain. sensor_drift "
+                      "(0.47 recall) and cooling_degradation (0.63) share a "
+                      "coolant-plus-oil-temperature signature and are mutually "
+                      "confused; read either as 'thermal fault, type uncertain'. "
+                      "Accuracy is severity-dependent (mild 0.65 / severe 0.81) and "
+                      "the artifact emits no severity estimate of its own.",
         }
     if name == "rul_regressor.pkl":
         return {
@@ -212,16 +228,22 @@ def main() -> int:
         "explainability": {
             "gate": "shap.TreeExplainer (exact)",
             "fault_classifier": "shap.explainers.Permutation",
-            "note": "TreeExplainer rejects multiclass GradientBoostingClassifier. "
-                    "Retrain as HistGradientBoosting / RandomForest / XGBoost to "
-                    "enable exact multiclass tree attribution.",
+            "note": "Both artifacts are HistGradientBoostingClassifier as of "
+                    "2026-09-11. Verify TreeExplainer accepts them before "
+                    "relying on exact attribution; SHAP support for sklearn "
+                    "histogram boosting is version-dependent and the service "
+                    "falls back to Permutation if construction fails.",
         },
         "open_issues": [
-            "gate performance is at chance (F1 0.676 == trivial baseline)",
-            "multiclass label map recovered by experiment, not read from training code",
-            "training script advertises a 6-label encoder; the artifact has 5 classes",
-            "class 'fuel_pressure_dev' is unreachable",
-            "RUL R2 is negative and its units are unknown",
+            "RUL R2 is negative and its units are unknown; out of scope until "
+            "Stage 8 supplies real degradation histories",
+            "sensor_drift and cooling_degradation are mutually confused "
+            "(0.47 / 0.63 recall); signatures overlap in the 14-feature space",
+            "baseline deck is a steady-state fit and does not track throttle "
+            "transients; rapid-throttle frames carry ~1.5C excess EGT residual",
+            "mild faults sit near the twin error floor; single-frame detection "
+            "is ~0.70 and a rolling-window feature block is the principled fix",
+            "models_trusted stays false while the RUL artifact is untrusted",
         ],
         "required_from_next_training_run": [
             "feature_order: exact list of column names in matrix order",

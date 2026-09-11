@@ -58,9 +58,10 @@ LABEL_PROVENANCE = (
     "CONFIRMED by directional response test (resolve_labels2.py). "
     "Not read from the training script."
 )
-# Was ("fuel_pressure_dev",). Falsified 2026-09-05: the class is the argmax at
-# near-zero residual (CASE 5), the regime every real sensor frame occupies. The
-# original conclusion came from large single-channel fuelflow offsets only.
+# Was ("fuel_pressure_dev",). Falsified 2026-09-05, and moot since the
+# 2026-09-11 retrain: the class now holds 0.79 recall on held-out engines. The
+# original dead-class behaviour was caused by training labels that marked
+# pre-onset frames as faulted (42.5% of injection rows), not by the class map.
 DEAD_CLASSES: tuple = ()
 FALLBACK_CLASS = "lubrication_degradation"
 GATE_ANOMALY_CLASS = 1
@@ -73,18 +74,36 @@ MODEL_CAVEATS: dict = {
                   "will not catch mild degradation.",
     },
     "gate": {
-        "status": "active_untrusted",
-        "severity": "critical",
-        "reason": "F1 0.676 equals the trivial always-fault baseline at a "
-                  "0.511 prior. Healthy/fault verdicts are near chance.",
-        "metrics": {"precision": 0.5110, "recall": 0.9982, "f1": 0.6760},
+        "status": "active",
+        "severity": "info",
+        "reason": "Retrained 2026-09-11 on in-window labels (6.87M-row master "
+                  "dataset, 58% positive held-out set, engines held out whole). "
+                  "At the served 0.65 threshold ~10% of healthy frames raise a "
+                  "false advisory. Mild faults are detected ~70% of the time, "
+                  "severe ~83%. The steady-state baseline deck does not track "
+                  "throttle transients, so RAPID_THROTTLE frames carry elevated "
+                  "residuals and a higher false-alarm rate.",
+        "metrics": {"precision": 0.9130, "recall": 0.7730, "f1": 0.8372,
+                    "specificity": 0.8983, "balanced_accuracy": 0.8356,
+                    "roc_auc": 0.9295, "threshold": 0.65,
+                    "test_positive_prevalence": 0.580},
     },
     "multiclass": {
         "status": "active_degraded",
         "severity": "warning",
-        "reason": "fuel_pressure_dev is never predicted; fuel faults "
-                  "misreport as lubrication_degradation. Output carries no "
-                  "severity information (saturates after one step).",
+        "reason": "Retrained 2026-09-11; accuracy 0.744, macro F1 0.735, no dead "
+                  "classes. sensor_drift (recall 0.47) and cooling_degradation "
+                  "(0.63) share a coolant-plus-oil-temperature signature and are "
+                  "mutually confused; treat either label as 'thermal fault, type "
+                  "uncertain'. Accuracy is severity-dependent (mild 0.65, "
+                  "moderate 0.77, severe 0.81) and the output carries no "
+                  "severity estimate of its own.",
+        "metrics": {"accuracy": 0.7442, "macro_f1": 0.7351,
+                    "per_class_recall": {"cooling_degradation": 0.6279,
+                                         "fuel_pressure_dev": 0.7897,
+                                         "lubrication_degradation": 0.9186,
+                                         "misfire": 0.9007,
+                                         "sensor_drift": 0.4727}},
     },
     "rul": {
         "status": "active_untrusted",
