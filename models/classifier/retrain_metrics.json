@@ -1,0 +1,14 @@
+{
+  "gate_best_threshold": 0.5200000000000002,
+  "gate_f1": 0.8515194346289753,
+  "always_fault_baseline_f1": 0.7342330801590122,
+  "per_class_recall": {
+    "cooling_degradation": 0.6278864213899017,
+    "fuel_pressure_dev": 0.7897345522634651,
+    "lubrication_degradation": 0.9186020791860208,
+    "misfire": 0.9007084095063985,
+    "sensor_drift": 0.4726930320150659
+  },
+  "rows": 600000,
+  "trained_utc": "2026-09-11T18:02:59Z"
+}

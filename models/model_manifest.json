@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-11T06:54:56+00:00",
+  "generated_at_utc": "2026-09-11T18:11:26+00:00",
   "sklearn_version_at_build": "1.9.0",
   "data_provenance": {
     "source": "Cantera simulation, synthetic",
@@ -248,16 +248,13 @@
     {
       "filename": "fault_classifier.pkl",
       "relpath": "classifier/fault_classifier.pkl",
-      "size_bytes": 78280,
-      "sha256": "2499b3a7f3e226050edf9379609cabaeaba681136892b821bbd5c95e38420748",
+      "size_bytes": 1043942,
+      "sha256": "9a41747681bcc7ccf564a07410e691c398b67a84418cf516df710f0d86b1b64c",
       "observed": {
-        "python_class": "GradientBoostingClassifier",
-        "module": "sklearn.ensemble._gb",
+        "python_class": "HistGradientBoostingClassifier",
+        "module": "sklearn.ensemble._hist_gradient_boosting.gradient_boosting",
         "has_feature_names_in_": false,
         "n_features_in_": 14,
-        "n_estimators": 50,
-        "max_depth": 3,
-        "n_classes_": 2,
         "classes_": [
           0,
           1
@@ -300,24 +297,21 @@
     {
       "filename": "fault_classifier_multiclass.pkl",
       "relpath": "classifier/fault_classifier_multiclass.pkl",
-      "size_bytes": 331672,
-      "sha256": "15cb2eb328917550f1652dd909ca02d062b396f9f47221ee332727c808fc5685",
+      "size_bytes": 5109793,
+      "sha256": "849fd34de2276bba835828f1e3d22099281df8b5bc4ef673faec60ba135ffe9e",
       "observed": {
-        "python_class": "GradientBoostingClassifier",
-        "module": "sklearn.ensemble._gb",
+        "python_class": "HistGradientBoostingClassifier",
+        "module": "sklearn.ensemble._hist_gradient_boosting.gradient_boosting",
         "has_feature_names_in_": false,
         "n_features_in_": 14,
-        "n_estimators": 50,
-        "max_depth": 3,
-        "n_classes_": 5,
         "classes_": [
-          0,
-          1,
-          2,
-          3,
-          4
+          0.0,
+          1.0,
+          2.0,
+          3.0,
+          4.0
         ],
-        "classes_dtype": "int64"
+        "classes_dtype": "float64"
       },
       "declared": {
         "role": "fault_classifier",
