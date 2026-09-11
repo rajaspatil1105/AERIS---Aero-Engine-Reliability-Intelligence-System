@@ -59,3 +59,9 @@ desktop.ini
 static/*.old*
 static/*.bak*
 *.bak*
+resid_sample.parquet
+*.lblbak
+*.cvbak
+*.broken
+*.bak2
+*.bak3
