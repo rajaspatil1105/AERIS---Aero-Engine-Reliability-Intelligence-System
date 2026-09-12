@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
+import pathlib
 import sklearn
 
 ROOT = Path(__file__).resolve().parent
@@ -41,12 +42,21 @@ FEATURE_ORDER = [
     "delta_oil_pressure_bar", "delta_oil_temperature_C", "delta_fuelflow_kgh",
 ]
 
-ENVELOPE = {
-    "rpm": [3000.0, 5800.0],
-    "throttle_pct": [56.5, 100.0],
-    "altitude_ft": [0.0, 21709.3],
-    "ambient_temperature_C": [-27.9845, 30.0],
-}
+# FOURTH place this envelope was written down by hand (after mission_engine.py,
+# the physics_deck baseline_stats, and the feature contract). Every copy drifted
+# and this one still published 3000-5800 rpm / 56.5%% throttle / 21709 ft after
+# the MVEM refit moved it to 2592-5808 / 20%% / 22800 ft. One owner now:
+# models/configs/reconstruction_config.json, written by the baseline refit from
+# the rows actually fit on. Read it, never restate it.
+def _load_envelope() -> dict:
+    import json
+    cfg = json.loads((pathlib.Path(__file__).resolve().parent / "models"
+           / "configs" / "reconstruction_config.json").read_text(encoding="utf-8"))
+    rng = next(iter(cfg["baseline_stats"].values()))["operating_range"]
+    return {k: [round(float(v[0]), 2), round(float(v[1]), 2)]
+            for k, v in rng.items()}
+
+ENVELOPE = _load_envelope()
 
 BASELINE_RANGE = {
     "EGT_mean_C": [363.541, 664.077],
@@ -216,10 +226,13 @@ def main() -> int:
         "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "sklearn_version_at_build": sklearn.__version__,
         "data_provenance": {
-            "source": "Cantera simulation, synthetic",
+            "source": "MVEM mean-value engine model (shared/engine_mvem.py), synthetic. Calibrated to manufacturer data at 5800 rpm WOT sea level (AVL Boost paper Table 4): fuel 33.8 L/h, 104.4 kW, BSFC 243 g/kWh all match to 0.0%. NO OTHER POINT IN THE ENVELOPE IS VALIDATED - no public part-throttle or altitude test data exists for the Rotax 915iS. Dataset mvem_v3.parquet, 629,441 rows, 60 virtual engines.",
             "measured_engine_data": False,
             "note": "no artifact trained on this data may be presented as a "
-                    "validated engine model; all outputs are pipeline demonstrations.",
+                    "validated engine model; all outputs are pipeline demonstrations. "
+                    "Known model weaknesses: oil temperature barely responds to "
+                    "oil_pump_health, thermal time constants are UNVERIFIED, rpm is "
+                    "a linear function of throttle with no propeller load model.",
         },
         "baseline_input_order": BASELINE_INPUT_ORDER,
         "feature_order": FEATURE_ORDER,
