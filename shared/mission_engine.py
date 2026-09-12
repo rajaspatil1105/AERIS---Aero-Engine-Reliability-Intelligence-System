@@ -34,6 +34,8 @@ CAVEATS and it is honest; claim otherwise and it is not.
 """
 from __future__ import annotations
 
+import pathlib
+
 import math
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
@@ -45,10 +47,32 @@ from node1_ingestion.simulator_bridge import Setpoint
 # Trained-envelope edges, read off models/training_envelope.json. Frames
 # outside these are emitted with scoreable=False; the twin extrapolates there
 # and its own manifest says the residuals are meaningless.
-ENV_ALT_MAX_FT = 21709.34086551268
-ENV_THR_MIN_PCT = 56.5
-ENV_RPM_MIN = 3000.0
-ENV_RPM_MAX = 5800.0
+# The trained envelope is owned by models/configs/reconstruction_config.json
+# (written by the baseline refit from the data actually fit on). Do NOT
+# restate it here: a local copy of the 14-column feature contract disagreed
+# with residual_calc once and the gate scored permuted columns for a whole
+# retrain cycle. Read it, fall back only if the config is unreadable.
+def _load_envelope() -> dict:
+    import json
+    try:
+        cfg = json.loads((pathlib.Path(__file__).resolve().parents[1]
+               / 'models' / 'configs' / 'reconstruction_config.json')
+               .read_text(encoding='utf-8'))
+        rng = next(iter(cfg['baseline_stats'].values()))['operating_range']
+        return {k: (float(v[0]), float(v[1])) for k, v in rng.items()}
+    except Exception as exc:
+        print('[mission_engine] envelope config unreadable (%s), '
+              'using fallback' % exc)
+        return {'altitude_ft': (0.0, 22799.88),
+                'throttle_pct': (20.0, 100.0),
+                'rpm': (2592.26, 5807.61),
+                'ambient_temperature_C': (-39.5, 39.86)}
+
+ENVELOPE = _load_envelope()
+ENV_ALT_MIN_FT, ENV_ALT_MAX_FT = ENVELOPE['altitude_ft']
+ENV_THR_MIN_PCT, ENV_THR_MAX_PCT = ENVELOPE['throttle_pct']
+ENV_RPM_MIN, ENV_RPM_MAX = ENVELOPE['rpm']
+ENV_OAT_MIN_C, ENV_OAT_MAX_C = ENVELOPE['ambient_temperature_C']
 
 AERIS_FIELDS = ("altitude_ft", "ambient_temperature_C", "throttle_pct", "rpm",
                 "fuelflow_kgh", "coolant_temp_C", "EGT_mean_C",
@@ -296,6 +320,7 @@ def run_mission(profile: Sequence[Setpoint],
 
     pts = sorted(profile, key=lambda s: s.t_s)
     fs = engine.fault_state()
+    _forced_on = False
     st = StressState()
     lagged: Dict[str, float] = {}
     prev_thr = pts[0].throttle_pct
@@ -311,13 +336,18 @@ def run_mission(profile: Sequence[Setpoint],
         prev_thr = thr
 
         if forced_fault is not None and forced_at_s is not None:
-            active = t >= forced_at_s and (forced_clear_s is None or t <= forced_clear_s)
-            if active and fs.label != forced_fault.label:
+            active = t >= forced_at_s and (forced_clear_s is None
+                                            or t <= forced_clear_s)
+            # Do NOT infer forced state from fs.label: apply_degradation()
+            # rewrites it when stress fires, the label comparison then misses
+            # and the forced fault never clears (measured: injected at 300 s,
+            # still applied at 1770 s with forced_clear_s=900).
+            if active and not _forced_on:
                 fs = replace(forced_fault)
-                fs.validate()
-                event_until = t + 120.0
-            elif not active and fs.label == forced_fault.label:
+                _forced_on = True
+            elif not active and _forced_on:
                 fs = engine.fault_state()          # recovery: back to baseline
+                _forced_on = False
                 event_until = t + 120.0
 
         o = mvem.solve(throttle_pct=thr, altitude_ft=alt, oat_c=oat, fault=fs)
@@ -353,8 +383,12 @@ def run_mission(profile: Sequence[Setpoint],
                  "oil_pressure_bar": round(lagged["oil_pressure_bar"], 4),
                  "oil_temperature_C": round(lagged["oil_temperature_C"], 2)}
 
-        scoreable = (alt <= ENV_ALT_MAX_FT and thr >= ENV_THR_MIN_PCT
-                     and ENV_RPM_MIN <= lagged["rpm"] <= ENV_RPM_MAX)
+        # Ambient is checked too: a hot sea-level day can exceed the
+        # +39.9 C the baselines ever saw, and forests extrapolate flat.
+        scoreable = (ENV_ALT_MIN_FT <= alt <= ENV_ALT_MAX_FT
+                     and ENV_THR_MIN_PCT <= thr <= ENV_THR_MAX_PCT
+                     and ENV_RPM_MIN <= lagged["rpm"] <= ENV_RPM_MAX
+                     and ENV_OAT_MIN_C <= oat <= ENV_OAT_MAX_C)
         yield {"t_s": round(t, 2), "frame": frame, "power_kW": round(power, 2),
                "stress": st.as_dict(), "fault_label": fs.label,
                "scoreable": scoreable,
