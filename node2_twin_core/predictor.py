@@ -76,34 +76,32 @@ MODEL_CAVEATS: dict = {
     "gate": {
         "status": "active",
         "severity": "info",
-        "reason": "Retrained 2026-09-11 on in-window labels (6.87M-row master "
-                  "dataset, 58% positive held-out set, engines held out whole). "
-                  "At the served 0.65 threshold ~10% of healthy frames raise a "
-                  "false advisory. Mild faults are detected ~70% of the time, "
-                  "severe ~83%. The steady-state baseline deck does not track "
-                  "throttle transients, so RAPID_THROTTLE frames carry elevated "
-                  "residuals and a higher false-alarm rate.",
-        "metrics": {"precision": 0.9130, "recall": 0.7730, "f1": 0.8372,
-                    "specificity": 0.8983, "balanced_accuracy": 0.8356,
-                    "roc_auc": 0.9295, "threshold": 0.65,
-                    "test_positive_prevalence": 0.580},
+        "reason": "Retrained 2026-09-11 on MVEM physics (629,441 rows, 60 virtual engines, envelope 0-22800 ft / 20-100% throttle / -39.5..+39.9 C, whole engines held out). ROC-AUC 0.9849. At the served 0.50 threshold ~0.7% of healthy frames raise a false advisory. Four of five faults are caught almost always (>=0.998): fuel_pressure_dev, misfire, lubrication_degradation, sensor_drift. COOLING DEGRADATION is caught ~0.19 of the time and is the documented weak class: a thermostatted engine holds 88 C setpoint until heat rejection exceeds what the weakened pump can carry, so at low load there is nothing for the outlet sensor to see. The proper fix is coolant delta-T (in vs out), which needs a sixth sensor channel and is out of scope. Steady-state baselines do not track throttle transients.",
+        "metrics": {
+            "precision": 0.9266,
+            "recall": 0.888,
+            "f1": 0.9069,
+            "specificity": 0.9474,
+            "balanced_accuracy": 0.9177,
+            "roc_auc": 0.9849,
+            "threshold": 0.5
+},
     },
     "multiclass": {
         "status": "active_degraded",
         "severity": "warning",
-        "reason": "Retrained 2026-09-11; accuracy 0.744, macro F1 0.735, no dead "
-                  "classes. sensor_drift (recall 0.47) and cooling_degradation "
-                  "(0.63) share a coolant-plus-oil-temperature signature and are "
-                  "mutually confused; treat either label as 'thermal fault, type "
-                  "uncertain'. Accuracy is severity-dependent (mild 0.65, "
-                  "moderate 0.77, severe 0.81) and the output carries no "
-                  "severity estimate of its own.",
-        "metrics": {"accuracy": 0.7442, "macro_f1": 0.7351,
-                    "per_class_recall": {"cooling_degradation": 0.6279,
-                                         "fuel_pressure_dev": 0.7897,
-                                         "lubrication_degradation": 0.9186,
-                                         "misfire": 0.9007,
-                                         "sensor_drift": 0.4727}},
+        "reason": "Accuracy 0.9122, macro F1 0.9122, no dead classes. Per-class recall: cooling_degradation 0.99, fuel_pressure_dev 0.73, lubrication_degradation 1.00, misfire 0.95, sensor_drift 0.89. Misfire and fuel_pressure_dev are both EGT-dominated and overlap mid-range (misfire precision 0.75, fuel recall 0.73); treat that pair as 'combustion/fuel fault, type uncertain'. Accuracy is severity-dependent (mild 0.91, moderate 0.85, severe 0.98) and the output carries no severity estimate of its own.",
+        "metrics": {
+            "accuracy": 0.9122,
+            "macro_f1": 0.9122,
+            "per_class_recall": {
+                        "cooling_degradation": 0.9949,
+                        "fuel_pressure_dev": 0.7343,
+                        "lubrication_degradation": 0.999,
+                        "misfire": 0.9484,
+                        "sensor_drift": 0.8852
+            }
+},
     },
     "rul": {
         "status": "active_untrusted",

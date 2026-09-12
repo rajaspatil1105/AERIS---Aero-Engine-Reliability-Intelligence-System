@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at_utc": "2026-09-11T18:25:49+00:00",
+  "generated_at_utc": "2026-09-12T05:58:55+00:00",
   "sklearn_version_at_build": "1.9.0",
   "data_provenance": {
     "source": "Cantera simulation, synthetic",
@@ -83,8 +83,8 @@
     {
       "filename": "coolant_temp_C_baseline.pkl",
       "relpath": "baseline/coolant_temp_C_baseline.pkl",
-      "size_bytes": 4203256,
-      "sha256": "6604340c6a3b1016247bff68a5c070f54cf896da2515009d2e139a967de1ddc6",
+      "size_bytes": 1030235,
+      "sha256": "ab6c6de765550ceef60e011dc81b49f6c36a11d87d128923ad2749b09c9d151f",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
@@ -116,8 +116,8 @@
     {
       "filename": "EGT_mean_C_baseline.pkl",
       "relpath": "baseline/EGT_mean_C_baseline.pkl",
-      "size_bytes": 7962533,
-      "sha256": "9c3f7ea915f2239fdcc274a02ac7788eeb14a6067aa9c6655e17f55ae3b97b47",
+      "size_bytes": 17046386,
+      "sha256": "f08407145136f3bb67aeddda6c0c99d7699157351a3ffbe228e60d6d6d686041",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
@@ -149,8 +149,8 @@
     {
       "filename": "fuelflow_kgh_baseline.pkl",
       "relpath": "baseline/fuelflow_kgh_baseline.pkl",
-      "size_bytes": 6961164,
-      "sha256": "ad373247890bb450d7d48f2f2f6d167e74e1e3ff317325b5acc1d900c4d0a030",
+      "size_bytes": 16102915,
+      "sha256": "e78eba14d024ca7d8e1d9f9aad638caacf80298047d4657f6c7d81dabf31375a",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
@@ -182,8 +182,8 @@
     {
       "filename": "oil_pressure_bar_baseline.pkl",
       "relpath": "baseline/oil_pressure_bar_baseline.pkl",
-      "size_bytes": 7558833,
-      "sha256": "0fadcfb7beb53419f2662e65229b03bda4472c0b388d7a9981e670d0124be841",
+      "size_bytes": 10799016,
+      "sha256": "5b4ab2d80c57aed7e381e6157c47072471d2864a1e0f7a75bda90ec228e6587b",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
@@ -215,8 +215,8 @@
     {
       "filename": "oil_temperature_C_baseline.pkl",
       "relpath": "baseline/oil_temperature_C_baseline.pkl",
-      "size_bytes": 4923700,
-      "sha256": "696db6be5b7c8cb1925e4023717e08a40806229218167d2fb3ddf7ccdb28669b",
+      "size_bytes": 1094456,
+      "sha256": "f822f151e32ceaaf64a3530741190672a082b842ba97865b538eea0b7438653e",
       "observed": {
         "python_class": "RandomForestRegressor",
         "module": "sklearn.ensemble._forest",
@@ -248,8 +248,8 @@
     {
       "filename": "fault_classifier.pkl",
       "relpath": "classifier/fault_classifier.pkl",
-      "size_bytes": 1043942,
-      "sha256": "9a41747681bcc7ccf564a07410e691c398b67a84418cf516df710f0d86b1b64c",
+      "size_bytes": 982712,
+      "sha256": "243cc118e9ea259cd44ea337e453ec79bfe66749956a709cdc43545125d65869",
       "observed": {
         "python_class": "HistGradientBoostingClassifier",
         "module": "sklearn.ensemble._hist_gradient_boosting.gradient_boosting",
@@ -299,8 +299,8 @@
     {
       "filename": "fault_classifier_multiclass.pkl",
       "relpath": "classifier/fault_classifier_multiclass.pkl",
-      "size_bytes": 5109793,
-      "sha256": "849fd34de2276bba835828f1e3d22099281df8b5bc4ef673faec60ba135ffe9e",
+      "size_bytes": 2834584,
+      "sha256": "71aa20354bac0845f1c3683a6e8c6cd153a25a7bf37de6ffbe71be9edd83fdb7",
       "observed": {
         "python_class": "HistGradientBoostingClassifier",
         "module": "sklearn.ensemble._hist_gradient_boosting.gradient_boosting",

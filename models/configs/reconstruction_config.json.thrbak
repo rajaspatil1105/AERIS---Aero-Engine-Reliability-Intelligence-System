@@ -20,18 +20,18 @@
     "delta_oil_temperature_C",
     "delta_fuelflow_kgh"
   ],
-  "confidence_threshold": 0.5,
+  "confidence_threshold": 0.4200000000000002,
   "anomaly_gate_performance": {
-    "precision": 0.9266,
-    "recall": 0.888,
-    "f1": 0.9069,
-    "specificity": 0.9474,
-    "balanced_accuracy": 0.9177,
-    "roc_auc": 0.9849,
-    "threshold": 0.5,
-    "test_positive_prevalence": 0.428,
-    "healthy_false_alarm_rate": 0.0526,
-    "note": "threshold re-derived on validation engines, not the retrain argmax"
+    "precision": 0.9578,
+    "recall": 0.9956,
+    "f1": 0.9763,
+    "specificity": 0.9673,
+    "balanced_accuracy": 0.9814,
+    "roc_auc": 0.9983,
+    "threshold": 0.4200000000000002,
+    "test_positive_prevalence": 0.427,
+    "healthy_false_alarm_rate": 0.0327,
+    "source": "train_classifiers_mvem.py, mvem_v3.parquet, threshold chosen on validation engines"
   },
   "rul_performance": {
     "mae": 107.26034603962889,

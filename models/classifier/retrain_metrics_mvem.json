@@ -1,0 +1,69 @@
+{
+  "source": "C:\\aeris_data\\datasets\\mvem_v3.parquet",
+  "rows": 629441,
+  "engines": 60,
+  "test_engines": [
+    "ENG_0008",
+    "ENG_0018",
+    "ENG_0019",
+    "ENG_0025",
+    "ENG_0028",
+    "ENG_0029",
+    "ENG_0040",
+    "ENG_0051",
+    "ENG_0056",
+    "ENG_0060"
+  ],
+  "features": [
+    "altitude_ft",
+    "ambient_temperature_C",
+    "throttle_pct",
+    "rpm",
+    "fuelflow_kgh",
+    "coolant_temp_C",
+    "EGT_mean_C",
+    "oil_pressure_bar",
+    "oil_temperature_C",
+    "delta_EGT_mean_C",
+    "delta_coolant_temp_C",
+    "delta_oil_pressure_bar",
+    "delta_oil_temperature_C",
+    "delta_fuelflow_kgh"
+  ],
+  "gate": {
+    "precision": 0.9266,
+    "recall": 0.888,
+    "f1": 0.9069,
+    "specificity": 0.9474,
+    "balanced_accuracy": 0.9177,
+    "roc_auc": 0.9849,
+    "threshold": 0.4100000000000002,
+    "test_positive_prevalence": 0.428,
+    "healthy_false_alarm_rate": 0.0526
+  },
+  "gate_detection_by_fault": {
+    "cooling_degradation": 0.4384,
+    "fuel_pressure_dev": 1.0,
+    "lubrication_degradation": 0.998,
+    "misfire": 0.9991,
+    "sensor_drift": 0.9992
+  },
+  "gate_detection_by_severity": {
+    "mild": 0.8605,
+    "moderate": 0.8825,
+    "severe": 0.9208
+  },
+  "multiclass": {
+    "accuracy": 0.9122,
+    "macro_f1": 0.9122,
+    "per_class_recall": {
+      "cooling_degradation": 0.9949,
+      "fuel_pressure_dev": 0.7343,
+      "lubrication_degradation": 0.999,
+      "misfire": 0.9484,
+      "sensor_drift": 0.8852
+    }
+  },
+  "dead_classes": [],
+  "provenance": "train_classifiers_mvem.py 2026-09-11 on mvem_v3.parquet (629,441 rows, 60 virtual engines, envelope 0-22800 ft / 20-100% throttle / -39.5..+49.5 C). Labels are per-row from the generator. Held-out engines: ENG_0008,ENG_0018,ENG_0019,ENG_0025,ENG_0028,ENG_0029,ENG_0040,ENG_0051,ENG_0056,ENG_0060 (104,897 rows)."
+}

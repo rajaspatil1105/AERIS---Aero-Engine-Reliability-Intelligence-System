@@ -142,6 +142,12 @@ class TwinFrame:
             return o
         return clean(asdict(self))
 
+class TwinCoreError(RuntimeError):
+    """Twin core refused to start. Was raised on line 174 without ever
+    being defined, so a real ManifestError surfaced as a NameError and
+    the actual reason was lost."""
+
+
 class TwinCore:
     def __init__(self, predictor=None, explain: bool = True,
                  warm_up: bool = True, verify_models: bool = True,
