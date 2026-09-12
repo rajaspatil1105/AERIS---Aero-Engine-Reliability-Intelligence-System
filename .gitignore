@@ -65,3 +65,7 @@ resid_sample.parquet
 *.broken
 *.bak2
 *.bak3
+*.prevbak
+*.envbak
+*.thrbak
+*.mvembak
