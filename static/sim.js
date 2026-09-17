@@ -1,99 +1,115 @@
-"use strict";
-// AERIS SIMULATION -- posts preset operating points to /frames at a chosen
-// rate. Deck values, not MVEM: these are the points the twin was trained on.
-var SM = { timer:null, t:0, dur:0, ses:null, sent:0 };
+﻿"use strict";
+// AERIS SIMULATION -- drives the SERVER-SIDE mission engine via POST /sim/run.
+//
+// Rewritten 2026-09-12. The previous version posted hand-copied channel values
+// straight to /frames and injected faults as client-side additive offsets.
+// Both were wrong after the MVEM refit: the cruise preset carried EGT 456.2 C
+// where MVEM solves 740.8, so a "healthy" mission scored FAULT 0.9999 on every
+// frame. And an offset on one sensor channel is sensor_drift, not a failing
+// pump -- it bypassed the engine model completely.
+//
+// Now the server owns the physics. This file sends an operating point and a
+// fault name; shared/mission_engine.py solves MVEM, applies FORCED_FAULTS,
+// runs the thermal lags and feeds each frame through the same scoring path.
+var SM = { poll:null, ses:null };
 
+// Operating points only. No channel values -- the server solves them, so these
+// cannot drift out of sync with the engine model again.
 var SM_PRESET = {
-  climb:  { throttle_pct:95, altitude_ft:6000, ambient_temperature_C:10,
-            rpm:5600, fuelflow_kgh:20.041, coolant_temp_C:76.983,
-            EGT_mean_C:564.866, oil_pressure_bar:3.890,
-            oil_temperature_C:76.092 },
-  cruise: { throttle_pct:80, altitude_ft:6000, ambient_temperature_C:10,
-            rpm:5000, fuelflow_kgh:10.580, coolant_temp_C:66.619,
-            EGT_mean_C:456.197, oil_pressure_bar:3.162,
-            oil_temperature_C:70.843 },
-  econ:   { throttle_pct:70, altitude_ft:8000, ambient_temperature_C:6,
-            rpm:4600, fuelflow_kgh:6.540, coolant_temp_C:63.618,
-            EGT_mean_C:406.706, oil_pressure_bar:2.827,
-            oil_temperature_C:69.580 }
+  climb:  { throttle_pct:95, altitude_ft:6000, oat_c:10 },
+  cruise: { throttle_pct:80, altitude_ft:6000, oat_c:10 },
+  econ:   { throttle_pct:70, altitude_ft:8000, oat_c:6  }
 };
 
+// Maps the existing select values to mission_engine FORCED_FAULTS keys.
+// sensor_drift is absent by design: it is a measurement offset, not a physical
+// degradation, so the mission engine does not forge one.
 var SM_FAULT = {
   none:        null,
-  cooling:     { ch:"coolant_temp_C",    mag:6.0,  ramp:120 },
-  lubrication: { ch:"oil_temperature_C", mag:5.0,  ramp:120 },
-  fuel:        { ch:"fuelflow_kgh",      mag:0.42, ramp:90  }
+  cooling:     "cooling_degradation",
+  lubrication: "lubrication_degradation",
+  fuel:        "fuel_pressure_dev",
+  misfire:     "misfire"
 };
 
 function smLog(s) { document.getElementById("sm-log").innerHTML = s; }
-
-function smFrac(t, onset, ramp, clear) {
-  if (t < onset) return 0;
-  if (clear > 0 && t >= onset + clear)
-    return Math.max(0, 1 - (t - onset - clear) / ramp);
-  return Math.min(1, (t - onset) / ramp);
-}
-
-async function smPost() {
-  var base = SM_PRESET[document.getElementById("sm-preset").value];
-  var fk = document.getElementById("sm-fault").value;
-  var spec = SM_FAULT[fk];
-  var onset = parseFloat(document.getElementById("sm-onset").value) || 0;
-  var clear = parseFloat(document.getElementById("sm-clear").value) || 0;
-
-  var body = {}, k;
-  for (k in base) body[k] = base[k];
-  var off = 0;
-  if (spec) {
-    off = spec.mag * smFrac(SM.t, onset, spec.ramp, clear);
-    body[spec.ch] = body[spec.ch] + off;
-  }
-
-  try {
-    var r = await fetch("/frames", { method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body) });
-    var d = await r.json();
-    SM.sent++;
-    smLog("t=" + SM.t.toFixed(1) + "s / " + SM.dur + "s &middot; frames " +
-      SM.sent + " &middot; " + (d.status || "?") +
-      (d.anomaly_probability === null || d.anomaly_probability === undefined
-        ? "" : " p=" + Number(d.anomaly_probability).toFixed(4)) +
-      (spec ? " &middot; " + spec.ch + " +" + off.toFixed(2) : ""));
-  } catch (e) { smLog("post failed: " + e.message); }
-
-  SM.t += 0.5;
-  if (SM.t > SM.dur) smStop("mission complete, " + SM.sent + " frames");
+function smVal(id, dflt) {
+  var el = document.getElementById(id);
+  var v = el ? parseFloat(el.value) : NaN;
+  return isNaN(v) ? dflt : v;
 }
 
 async function smStart() {
-  if (SM.timer) return;
-  SM.t = 0; SM.sent = 0;
-  SM.dur = parseFloat(document.getElementById("sm-dur").value) || 300;
-  var rate = parseFloat(document.getElementById("sm-rate").value) || 1;
+  if (SM.poll) return;
+  var pk = document.getElementById("sm-preset").value;
+  var fk = document.getElementById("sm-fault").value;
+  var base = SM_PRESET[pk];
+  var fault = SM_FAULT[fk] || null;
+  var dur = smVal("sm-dur", 300);
+  var onset = smVal("sm-onset", 0);
+  var clear = smVal("sm-clear", 0);
+
+  var body = {
+    engine_serial: "RTX915-0003",
+    throttle_pct: base.throttle_pct,
+    altitude_ft: base.altitude_ft,
+    oat_c: base.oat_c,
+    duration_s: dur,
+    emit_cruise_s: 10.0,
+    emit_event_s: 1.0,
+    speed: smVal("sm-rate", 1)
+  };
+  if (fault) {
+    body.fault = fault;
+    body.fault_severity = "severe";
+    body.fault_at_s = onset;
+    // The form asks for a DURATION after onset; the route wants an absolute
+    // mission time. 0 means "never clear".
+    if (clear > 0) body.fault_clear_s = onset + clear;
+  }
+
   try {
-    var r = await fetch("/sessions", { method:"POST",
+    var r = await fetch("/sim/run", { method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ note:"UI simulation " +
-        document.getElementById("sm-preset").value + " / " +
-        document.getElementById("sm-fault").value }) });
+      body: JSON.stringify(body) });
     var d = await r.json();
-    SM.ses = d.session_id || d.id || null;
-  } catch (e) { smLog("session open failed: " + e.message); return; }
-  smLog("running, session " + SM.ses);
-  SM.timer = setInterval(smPost, 500 / rate);
+    if (!r.ok || d.session_id === undefined) {
+      smLog("run rejected: " + (d.detail ? JSON.stringify(d.detail) : r.status));
+      return;
+    }
+    SM.ses = d.session_id;
+  } catch (e) { smLog("run failed: " + e.message); return; }
+
+  smLog("running server-side, session " + SM.ses + " &middot; " + pk +
+        (fault ? " &middot; " + fault + " @ " + onset + "s" : " &middot; healthy"));
+  SM.poll = setInterval(smTick, 1000);
 }
 
-function smStop(msg) {
-  if (SM.timer) { clearInterval(SM.timer); SM.timer = null; }
-  smLog(msg || ("stopped at t=" + SM.t.toFixed(1) + "s, " + SM.sent + " frames"));
+async function smTick() {
+  try {
+    var r = await fetch("/sim/run/" + SM.ses);
+    var d = await r.json();
+    smLog("session " + SM.ses + " &middot; frames " + (d.frames || 0) +
+          " &middot; faults " + (d.faults || 0) +
+          (d.error ? " &middot; ERROR " + d.error : "") +
+          (d.done ? " &middot; complete" : " &middot; running"));
+    if (d.done || d.error) smStop(null, true);
+  } catch (e) { smLog("poll failed: " + e.message); smStop(null, true); }
+}
+
+function smStop(msg, quiet) {
+  if (SM.poll) { clearInterval(SM.poll); SM.poll = null; }
+  if (!quiet && SM.ses !== null) {
+    // Ask the server to abort; the mission loop checks a cancel flag.
+    fetch("/sim/run/" + SM.ses, { method:"DELETE" }).catch(function () {});
+    smLog("cancel requested for session " + SM.ses);
+  } else if (msg) { smLog(msg); }
 }
 
 (function smWire() {
   document.getElementById("sm-start").onclick = smStart;
   document.getElementById("sm-stop").onclick = function () { smStop(); };
 })();
-// ---------------------------------------------------------------- //
 // FAULT ALARM -- watches the verdict panel and beeps on the
 // HEALTHY -> FAULT transition. Deliberately not inside render():
 // this reads the DOM, so it cannot affect the scoring path.

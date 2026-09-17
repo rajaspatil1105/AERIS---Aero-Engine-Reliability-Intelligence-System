@@ -1,6 +1,6 @@
 # AERIS - declared caveats
 
-Generated 2026-09-05 01:03 by make_caveats.py. Do not edit by hand.
+Generated 2026-09-18 01:45 by make_caveats.py. Do not edit by hand.
 
 ## Node 1 ingestion adapter - input assumptions
 
@@ -63,7 +63,7 @@ Source: `shared.atmosphere.atmosphere_caveats()`
 Source: `shared.stress_sim.stress_caveats()`
 
 ### gate_untrusted_pre_retrain  [UNVERIFIED]
-- **value**: 0.65
+- **value**: 0.5
 - **detail**: a known-healthy deck point scores 0.5444 against the 0.65 gate: +0.1056 headroom. Margins are relative indicators, not airworthiness statements.
 
 ### cells_are_synthesised_healthy  [VERIFIED]
@@ -162,41 +162,45 @@ Source: `shared.fault_injection.injection_caveats()`
 - **value**: channel offset -> fault_label
 - **detail**: which label an offset produces is a property of the Cantera-generated training set, declared ~70% faithful to a real engine, and of a gate that is untrusted pre-retrain. CASE 6 scans and prints the mapping rather than asserting one. A label being plausible is not the same as it being correct.
 
-### dead_class_cannot_be_diagnosed  [VERIFIED]
-- **value**: ['fuel_pressure_dev']
-- **detail**: fuel_pressure_dev appears in fault_probabilities with small nonzero mass but never wins, including for direct fuel-flow injections. One of five advertised labels is therefore undiagnosable. CASE 7 asserts it never becomes fault_label instead of hiding it, and it must not be used in a demo.
+### all_classes_reachable_under_injection  [VERIFIED]
+- **value**: none -- set emptied at e49cf96 when SIGNED residuals restored fuel_pressure_dev as argmax for EGT offsets
+- **detail**: fuel_pressure_dev appears in fault_probabilities with small nonzero mass but never wins, including for direct fuel-flow injections. One of five advertised labels is therefore undiagnosable AT THESE OFFSETS -- it does win at near-zero residual. CASE 7 asserts it never becomes fault_label instead of hiding it, and it must not be used in a demo.
 
 ### rul_collapses_under_injection  [VERIFIED]
 - **value**: 182.48 healthy -> -0.06 raw under lubrication
 - **detail**: measured: rul_raw falls from 182.4773909895507 at the healthy point to about -0.056 for the lubrication case, i.e. past zero. rul_trusted stays False and rul_units is 'unknown', so RUL must never be rendered as minutes remaining. It is a direction, not a duration.
 
-### residuals_reported_unsigned  [VERIFIED]
-- **value**: -0.8 bar injected reads 0.8
-- **detail**: measured: the twin's residuals dict carries magnitudes, not signed deviations, so a pressure DROP and a pressure RISE of equal size are indistinguishable downstream. Anything comparing residuals to injected offsets must compare absolute values, and a UI cannot infer direction from residuals alone -- use expected vs features.
+### residuals_are_signed  [VERIFIED]
+- **value**: -0.8 bar injected reads -0.8; +0.8 does not cross
+- **detail**: the twin's residuals dict carries SIGNED deviations (measured - expected) as of e49cf96. It previously carried magnitudes: residual_calc applied abs() per channel while the deployed gate trains on signed deltas, so a 0.91 bar oil pressure COLLAPSE arrived as +0.91 and scored 0.3532 HEALTHY. Direction now reaches the classifier: -0.8 bar scores 0.9999 and labels lubrication_degradation, +0.8 bar scores 0.4411 and does not cross. A UI may read direction from the residual sign.
 
 ### four_twin_statuses_not_three  [VERIFIED]
 - **value**: ['HEALTHY', 'ADVISORY', 'FAULT', 'UNAVAILABLE']
 - **detail**: discovered by injection: oil_pressure_low returns status='ADVISORY' with is_healthy=False and fault_label=None. ADVISORY is produced by the stats-range advisory channel, independently of the 0.65 gate, so the twin has FOUR statuses and any UI must render all four. Not the same vocabulary as throttle_dynamics.wire_status().
 
-### oil_pressure_sensitivity_gap  [VERIFIED]
-- **value**: -1.0 bar of 3.162 -> p_anom 0.5679, no crossing
-- **detail**: measured: losing 32% of oil pressure does NOT cross the gate; it scores 0.5679, only +0.0235 above the healthy 0.5444, and reports ADVISORY. Meanwhile the measured residual resolution for that channel is 0.00019 bar, so the gate is strongly NON-MONOTONIC in offset: tiny changes move the score, a large one barely does. A real oil pressure failure could be missed. Pinned in KNOWN_SUBGATE.
+### fuel_flow_sensitivity_gap  [VERIFIED]
+- **value**: +/-1.5 kg/h of 16.45 -> 0.0034 / 0.0845, no crossing
+- **detail**: RESCOPED 2026-09-12. This caveat previously recorded that a 32% oil pressure loss scored 0.5679 and did not cross. That was the abs() serving bug (e49cf96): -1.0 bar arrived as +1.0 bar, i.e. pressure HIGH, a region full of healthy training rows. Signed, -1.0 bar scores 0.9999 and labels lubrication_degradation, so the oil pressure gap does not exist. A REAL gap remains on fuel flow: -1.5 kg/h scores 0.0845 and +1.5 kg/h scores 0.0034 on a 16.45 kg/h nominal (9%), neither crossing 0.50, and CASE 5 bisection finds no crossing in either direction. Fuel flow alone is not a detection channel at this operating point. Pinned in KNOWN_SUBGATE.
 
 ### p_anom_is_not_severity_or_direction  [VERIFIED]
 - **value**: coolant +10 == +25; fuel -1.5 == +1.5
 - **detail**: measured: a +10 C and a +25 C coolant excursion both score exactly 0.7229, so p_anom carries no severity information. A 1.5 kg/h fuel DEFICIT and a 1.5 kg/h EXCESS both score exactly 0.6651 with the same label, because residuals are reported unsigned -- the gate cannot distinguish opposite physical faults. p_anom answers 'is something wrong', not 'how badly' or 'which way'. Pinned in IDENTICAL_PAIRS.
 
-### labels_reflect_channel_count_not_mechanism  [UNVERIFIED]
-- **value**: oil_hot -> sensor_drift; oil_hot+press_low -> lubrication
-- **detail**: measured: a lone oil-temperature excursion is labelled sensor_drift, while the same excursion combined with a pressure loss is labelled lubrication_degradation. Reading a single implausible channel as an instrumentation problem is plausible behaviour, but it is a property of the Cantera-generated training set (~70% faithful), not validated physics.
+### misfire_not_identifiable_from_mean_value_sensors  [VERIFIED]
+- **value**: 1 cyl at 0.62 trim == uniform 0.905 == fuel_pressure_dev frac 0.59
+- **detail**: MEASURED and arithmetic, not a classifier weakness. A severe single-cylinder misfire (cylinder_fuel_trim 0.62 on one of four) delivers 0.905 of nominal fuel flow; fuel_pressure_dev applies a UNIFORM trim of 1.0 +/- 0.16*frac, so frac 0.59 delivers the same 0.905. MVEM reports one MEAN EGT across four cylinders and no crank-speed irregularity, so the two faults are the same point in the measured space. A forced severe misfire is detected at p_anom 0.9999 but labelled fuel_pressure_dev with dEGT -60.5 C and dFF -1.57 kg/h. The gate result is trustworthy; the type assignment between these two classes is UNIDENTIFIABLE and explains the misfire precision 0.754 / fuel_pressure_dev recall 0.734 pair in retrain_metrics_mvem.json. Separating them needs a sensor channel that does not exist yet: per-cylinder EGT or rpm irregularity. Present either as 'fuel/combustion fault, type uncertain' with fault_probabilities shown.
 
-### gate_is_non_monotonic  [VERIFIED]
-- **value**: coolant crosses at 0.038 C but not at -10 C
-- **detail**: MEASURED, and it invalidates any reading of p_anom as severity. CASE 5 bisects the smallest crossing offset, CASE 6 applies a large one, and they disagree: coolant crosses at 0.0383 C yet -10 C scores 0.5965 and does not cross; rpm crosses at +88.96 yet +250 scores 0.5457 and does not; oil pressure never crosses by bisection although its residual resolution is 0.00019 bar. The gate is tree-based, so a threshold is a LEAF BOUNDARY, not a floor above which detection is guaranteed. Same phenomenon as the 500 ft altitude leaf width in stress_sim.
+### labels_reflect_channel_count_not_mechanism  [VERIFIED]
+- **value**: oil_hot -> sensor_drift; oil_hot+press_low -> lubrication
+- **detail**: measured: a lone oil-temperature excursion is labelled sensor_drift, while the same excursion combined with a pressure loss is labelled lubrication_degradation. Reading a single implausible channel as an instrumentation problem is plausible behaviour, but it is a property of the training set, not validated physics. (This block previously carried two 'value' keys, the second silently shadowing the first, and cited a Cantera training set that no longer exists -- the data is MVEM, mvem_v3.parquet, validated only at 5800 rpm WOT sea level.)
+
+### gate_monotone_where_measured  [VERIFIED]
+- **value**: CASE 6 scan found no non-monotonic channel
+- **detail**: RETIRED 2026-09-12. The pinned non-monotonicity -- coolant crossing at 0.0383 C yet -10 C not crossing, rpm crossing at +88.96 yet +250 not crossing, oil pressure never crossing by bisection -- was an artifact of ABSOLUTE residuals folding both directions onto one value, so bisection and the large offset were probing different physical states under the same number. With signed residuals the CASE 6 scan finds no non-monotonic channel. p_anom still carries no SEVERITY (coolant_hot 0.9998 == coolant_very_hot 0.9998), and the gate is still tree-based, so a threshold remains a leaf boundary rather than a guaranteed detection floor. Measured at ONE operating point.
 
 ### oil_temperature_hypersensitive  [VERIFIED]
 - **value**: 0.0017 C crosses the gate
-- **detail**: MEASURED: an oil-temperature offset of 1.7 mK reaches the 0.65 gate and reports FAULT, against an admission tolerance of 0.35 mK -- a band of about 5x in millikelvin between 'admitted as healthy' and 'reported as faulty'. This is the quantitative justification for the steady-state admission gate in throttle_dynamics: the transient lag it was previously admitting at 2% of step was 0.157 C, which is 92x this detection threshold, so every transient frame was guaranteed to read FAULT. Note the safety asymmetry: oil TEMPERATURE is hypersensitive (false positives) while oil PRESSURE misses a 32% loss (false negatives).
+- **detail**: MEASURED: an oil-temperature offset of 1.7 mK reaches the 0.65 gate and reports FAULT, against an admission tolerance of 0.35 mK -- a band of about 5x in millikelvin between 'admitted as healthy' and 'reported as faulty'. This is the quantitative justification for the steady-state admission gate in throttle_dynamics: the transient lag it was previously admitting at 2% of step was 0.157 C, which is 92x this detection threshold, so every transient frame was guaranteed to read FAULT. The oil pressure half of the asymmetry once claimed here is gone: pressure loss is detected at 0.9999 since e49cf96. Oil temperature remains hypersensitive, and fuel flow is now the insensitive channel -- see fuel_flow_sensitivity_gap.
 
 ### safety_alert_never_observed  [UNVERIFIED]
 - **value**: 0 of 10 injections
@@ -224,7 +228,7 @@ Source: `node3_service.api.service_caveats()`
 
 ## Summary
 
-- 46 declared caveats, 20 marked UNVERIFIED.
+- 47 declared caveats, 19 marked UNVERIFIED.
 - Regression invariant: p_anom = 0.5443998040908319 at rpm 5000, throttle 80 %, 6000 ft, 10 C.
 - Fault gate threshold 0.65 is UNTRUSTED pre-retrain.
 - Multiclass label 'fuel_pressure_dev' is a dead class and is never predicted.
