@@ -327,8 +327,10 @@ def injection_caveats() -> List[Dict[str, Any]]:
                   "one. A label being plausible is not the same as it being "
                   "correct.",
     }, {
-        "id": "class_never_argmax_under_injection", "verified": True,
-        "value": list(NEVER_ARGMAX_UNDER_INJECTION),
+        "id": "all_classes_reachable_under_injection", "verified": True,
+        "value": (list(NEVER_ARGMAX_UNDER_INJECTION) or
+                  "none -- set emptied at e49cf96 when SIGNED residuals "
+                  "restored fuel_pressure_dev as argmax for EGT offsets"),
         "detail": "fuel_pressure_dev appears in fault_probabilities with small "
                   "nonzero mass but never wins, including for direct fuel-flow "
                   "injections. One of five advertised labels is therefore "
@@ -365,15 +367,20 @@ def injection_caveats() -> List[Dict[str, Any]]:
                   "twin has FOUR statuses and any UI must render all four. "
                   "Not the same vocabulary as throttle_dynamics.wire_status().",
     }, {
-        "id": "oil_pressure_sensitivity_gap", "verified": True,
-        "value": "-1.0 bar of 3.162 -> p_anom 0.5679, no crossing",
-        "detail": "measured: losing 32% of oil pressure does NOT cross the "
-                  "gate; it scores 0.5679, only +0.0235 above the healthy "
-                  "0.5444, and reports ADVISORY. Meanwhile the measured "
-                  "residual resolution for that channel is 0.00019 bar, so "
-                  "the gate is strongly NON-MONOTONIC in offset: tiny changes "
-                  "move the score, a large one barely does. A real oil "
-                  "pressure failure could be missed. Pinned in KNOWN_SUBGATE.",
+        "id": "fuel_flow_sensitivity_gap", "verified": True,
+        "value": "+/-1.5 kg/h of 16.45 -> 0.0034 / 0.0845, no crossing",
+        "detail": "RESCOPED 2026-09-12. This caveat previously recorded that a "
+                  "32% oil pressure loss scored 0.5679 and did not cross. That "
+                  "was the abs() serving bug (e49cf96): -1.0 bar arrived as "
+                  "+1.0 bar, i.e. pressure HIGH, a region full of healthy "
+                  "training rows. Signed, -1.0 bar scores 0.9999 and labels "
+                  "lubrication_degradation, so the oil pressure gap does not "
+                  "exist. A REAL gap remains on fuel flow: -1.5 kg/h scores "
+                  "0.0845 and +1.5 kg/h scores 0.0034 on a 16.45 kg/h nominal "
+                  "(9%), neither crossing 0.50, and CASE 5 bisection finds no "
+                  "crossing in either direction. Fuel flow alone is not a "
+                  "detection channel at this operating point. Pinned in "
+                  "KNOWN_SUBGATE.",
     }, {
         "id": "p_anom_is_not_severity_or_direction", "verified": True,
         "value": "coolant +10 == +25; fuel -1.5 == +1.5",
@@ -443,9 +450,11 @@ def injection_caveats() -> List[Dict[str, Any]]:
                   "gate in throttle_dynamics: the transient lag it was "
                   "previously admitting at 2% of step was 0.157 C, which is 92x "
                   "this detection threshold, so every transient frame was "
-                  "guaranteed to read FAULT. Note the safety asymmetry: oil "
-                  "TEMPERATURE is hypersensitive (false positives) while oil "
-                  "PRESSURE misses a 32% loss (false negatives).",
+                  "guaranteed to read FAULT. The oil pressure half of the "
+                  "asymmetry once claimed here is gone: pressure loss is "
+                  "detected at 0.9999 since e49cf96. Oil temperature remains "
+                  "hypersensitive, and fuel flow is now the insensitive "
+                  "channel -- see fuel_flow_sensitivity_gap.",
     }, {
         "id": "safety_alert_never_observed", "verified": False,
         "value": "0 of 10 injections",
@@ -674,17 +683,29 @@ def _self_test() -> None:
           f"every injection produced the same label {labels} -- the multiclass "
           f"stage is not discriminating between channels")
 
-    print("\nCASE 7  the class that never wins under injection")
+    print("\nCASE 7  every declared class should be reachable")
     everything = results + crossed
-    dead_wins = [x.name for x in everything
-                 if str(x.fault_label) in NEVER_ARGMAX_UNDER_INJECTION]
-    mass = max((x.fault_probabilities.get(NEVER_ARGMAX_UNDER_INJECTION[0], 0.0)
-                for x in everything if x.fault_probabilities), default=0.0)
-    print(f"  {NEVER_ARGMAX_UNDER_INJECTION[0]}: max probability mass seen {mass:.4f}, "
-          f"times it won: {len(dead_wins)}")
-    check(not dead_wins,
-          f"{NEVER_ARGMAX_UNDER_INJECTION[0]} was reported as the label for {dead_wins} -- it "
-          f"is never argmax under injection at these offsets")
+    # Rewritten 2026-09-12. This indexed NEVER_ARGMAX_UNDER_INJECTION[0] and
+    # raised IndexError once that tuple emptied at e49cf96, killing CASES 7-9.
+    # The property worth protecting is the inverse: no class should be
+    # unreachable. fuel_pressure_dev left the set when SIGNED residuals gave it
+    # back a discriminating direction (egt_high 0.969, egt_low 0.507).
+    labelled = [x for x in everything if x.fault_probabilities]
+    won = sorted({str(x.fault_label) for x in everything if x.fault_label})
+    print(f"  labels produced under injection: {won}")
+    for cls in sorted({k for x in labelled for k in x.fault_probabilities}):
+        mass = max(x.fault_probabilities.get(cls, 0.0) for x in labelled)
+        tally = sum(1 for x in everything if str(x.fault_label) == cls)
+        flag = "" if tally else "   <-- never argmax at these offsets"
+        print(f"    {cls:<24} max mass {mass:.4f}  won {tally}x{flag}")
+    if NEVER_ARGMAX_UNDER_INJECTION:
+        regained = [c for c in NEVER_ARGMAX_UNDER_INJECTION if c in won]
+        check(not regained,
+              f"{regained} is pinned as never-argmax but won under injection -- "
+              f"that is an improvement; update NEVER_ARGMAX_UNDER_INJECTION")
+    check(len(won) >= 3,
+          f"only {len(won)} distinct class(es) reachable under injection: {won}. "
+          f"Single-channel offsets should spread across the multiclass stage.")
 
     print("\nCASE 8  RUL under injection, and the safety channel")
     for inj in results:
@@ -713,8 +734,8 @@ def _self_test() -> None:
     print("\nFAULT INJECTION SELF-CHECK OK")
     print("  the detection path fires with live labels; offsets are synthetic, "
           "the gate is untrusted,")
-    print("  p_anom grades neither severity nor direction, and a 32% oil "
-          "pressure loss does not cross it")
+    print("  p_anom grades severity not at all and direction only since "
+          "e49cf96; fuel flow alone does not cross the gate")
 
 
 if __name__ == "__main__":
