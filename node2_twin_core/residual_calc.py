@@ -60,7 +60,12 @@ def _find_config(name: str = CONFIG_NAME) -> Path | None:
 
 CONFIG_PATH = _find_config()
 
-RESIDUAL_MODE = "ABSOLUTE"
+RESIDUAL_MODE = "SIGNED"   # changed 2026-09-12: the MVEM refit trains on
+# signed (measured - expected) deltas (train_classifiers_mvem.py L95-96).
+# Serving in ABSOLUTE mode fed the gate +0.91 bar for a 0.91 bar oil
+# pressure COLLAPSE, scoring it 0.3532 (healthy) against 0.9999 offline.
+# Verified on mvem_v3.parquet: oil_pressure residuals 53.6% negative,
+# min -1.17 bar; EGT -110..+130 C. Signed is mandatory for these artifacts.
 
 # The classifier input matrix, in exact column order.
 FEATURE_ORDER: list[str] = [
@@ -118,7 +123,7 @@ class ResidualSet:
         """Channel with the largest absolute residual, or None if empty."""
         if not self.residuals:
             return None
-        return max(self.residuals, key=lambda k: self.residuals[k])
+        return max(self.residuals, key=lambda k: abs(self.residuals[k]))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -239,7 +244,7 @@ class ResidualCalculator:
 
         expected = {c: float(pred.expected[c]) for c in MEASURED_CHANNELS}
         signed = {c: clean[c] - expected[c] for c in MEASURED_CHANNELS}
-        residuals = {c: abs(signed[c]) for c in MEASURED_CHANNELS}
+        residuals = dict(signed)      # SIGNED: direction reaches the classifier
 
         features: dict[str, float] = {k: clean[k] for k in RAW_FEATURES}
         for fname, target in zip(DELTA_FEATURES, DELTA_TARGETS):
@@ -319,12 +324,12 @@ def _self_test() -> None:
 
     print("\nCASE 1  healthy point -> residuals ~ 0")
     res = calc.compute(_healthy_payload(deck=calc.deck))
-    for c, v in sorted(res.residuals.items(), key=lambda kv: -kv[1]):
+    for c, v in sorted(res.residuals.items(), key=lambda kv: -abs(kv[1])):
         print(f"  {c:<22} {v:.4e}")
-    if max(res.residuals.values()) > 1e-9:
+    if max(abs(v) for v in res.residuals.values()) > 1e-9:
         failures.append("healthy residuals not ~0")
 
-    print("\nCASE 2  EGT +45 C (ABSOLUTE)")
+    print("\nCASE 2  EGT +45 C (SIGNED)")
     r2 = calc.compute(_healthy_payload(deck=calc.deck, offsets={"EGT_mean_C": 45.0}))
     print(f"  delta_EGT_mean_C     {r2.features['delta_EGT_mean_C']:.2f}")
     print(f"  delta_coolant_temp_C {r2.features['delta_coolant_temp_C']:.4e}")
@@ -334,8 +339,8 @@ def _self_test() -> None:
     r3 = calc.compute(_healthy_payload(deck=calc.deck, offsets={"EGT_mean_C": -45.0}))
     print(f"  delta_EGT_mean_C     {r3.features['delta_EGT_mean_C']:.2f}")
     print(f"  signed EGT           {r3.signed['EGT_mean_C']:+.2f}")
-    if abs(r2.features["delta_EGT_mean_C"] - r3.features["delta_EGT_mean_C"]) > 1e-6:
-        failures.append("ABSOLUTE mode is not symmetric")
+    if abs(r2.features["delta_EGT_mean_C"] + r3.features["delta_EGT_mean_C"]) > 1e-6:
+        failures.append("SIGNED mode lost direction: +45 and -45 must be opposite")
     if r2.signed["EGT_mean_C"] * r3.signed["EGT_mean_C"] > 0:
         failures.append("signed residual lost direction")
 
