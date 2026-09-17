@@ -41,18 +41,17 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from node1_ingestion.adapter import to_twin_payload, twin_frame_to_dict
 from shared.stress_sim import (
-    GATE_THRESHOLD, build_core, deck, envelope_verdict, reference_op, _extract,
+    GATE_THRESHOLD, HEALTHY_P_ANOM, build_core, deck, envelope_verdict,
+    reference_op, _extract,
 )
 from shared.throttle_dynamics import GATE_RESID_TOL, _frame_from_state
 
-FAULT_INJECTION_VERSION = "0.1.2"
-HEALTHY_P_ANOM = 0.5443998040908319      # the regression invariant
-# Was DEAD_CLASSES. Renamed 2026-09-05: never argmax for the
-# large single-channel offsets injected here, which is what CASE 7 asserts and
-# is still true. It IS the argmax at near-zero residual (|r| ~ 0.002), the
-# regime every real sensor frame occupies -- see predictor CASE 5. "Dead" was
-# an overreach from one stimulus range.
-NEVER_ARGMAX_UNDER_INJECTION = ("fuel_pressure_dev",)
+FAULT_INJECTION_VERSION = "0.2.0"
+# Emptied 2026-09-12 (e49cf96): with SIGNED residuals fuel_pressure_dev IS
+# argmax for egt_high (+50 C, conf 0.969) and egt_low (-50 C, conf 0.507).
+# Under ABSOLUTE both directions folded onto one point and the class could
+# never win. No class is currently never-argmax under injection.
+NEVER_ARGMAX_UNDER_INJECTION: tuple = ()
 
 # The twin's full status vocabulary, discovered by injection. ADVISORY was not
 # known until oil_pressure_low produced it: gate not crossed, but a channel is
@@ -60,29 +59,35 @@ NEVER_ARGMAX_UNDER_INJECTION = ("fuel_pressure_dev",)
 # the 0.65 gate, and fault_label is None there.
 KNOWN_STATUSES = ("HEALTHY", "ADVISORY", "FAULT", "UNAVAILABLE")
 
-# Scenarios that were MEASURED to cross the 0.65 gate.
+# Scenarios MEASURED to cross the gate (threshold owned by stress_sim).
+# Re-pinned 2026-09-12: oil_pressure_low ADDED (0.5679 -> 0.9999 once the sign
+# reached the classifier); fuel_lean and fuel_rich REMOVED -- they were pinned
+# as crossing but measure 0.0845 and 0.0034, so the old assertion was wrong in
+# both directions and the 0.65-vs-0.50 mismatch masked it.
 MUST_CROSS = ("coolant_hot", "coolant_very_hot", "egt_high", "egt_low",
-              "oil_hot", "lubrication", "fuel_lean", "fuel_rich",
+              "oil_hot", "oil_pressure_low", "lubrication",
               "overheat_coupled")
 
-# Scenarios measured NOT to cross, pinned with the value observed. A -1.0 bar
-# loss on a 3.162 bar nominal -- 32% of oil pressure -- reads 0.5679, only
-# +0.0235 above the healthy 0.5444. Asserted to stay sub-gate so that a
-# retrain which fixes this sensitivity gap fails the test loudly instead of
-# passing silently.
-# The pinned value is the FULL-PRECISION measured one. v0.1.1 pinned
-# 0.5679216802197834, which was "0.5679" read off a rounded console print with
-# the remaining digits invented; the test correctly rejected it. Pin only what
-# was actually measured.
-KNOWN_SUBGATE: Dict[str, float] = {"oil_pressure_low": 0.567868692948779}
+# Scenarios measured NOT to cross, pinned with the value observed.
+# Re-pinned 2026-09-12. oil_pressure_low left this set: -1.0 bar on a 3.162 bar
+# nominal now reads 0.9999 and labels lubrication_degradation, because
+# residual_calc serves signed deltas (e49cf96). The old 0.5679 was the score for
+# "+1.0 bar of pressure", a region full of healthy training rows.
+# Fuel flow entered it: +/-1.5 kg/h on 16.45 with every other channel at
+# equilibrium does not reach 0.50 in either direction. That is a real
+# sensitivity gap in the fuel channel, not a sign artifact -- pinned so a
+# retrain that closes it fails loudly.
+KNOWN_SUBGATE: Dict[str, float] = {"fuel_lean": 0.08449641608147526,
+                                   "fuel_rich": 0.0034335051375889427}
 
 # Pairs measured to score IDENTICALLY, pinned for the same reason.
 #   saturation: 2.5x the coolant excursion, same score -- p_anom carries no
-#               severity information.
-#   direction:  opposite fuel-flow faults, same score -- residuals are
-#               reported unsigned, so the gate cannot tell lean from rich.
-IDENTICAL_PAIRS = (("coolant_hot", "coolant_very_hot", "severity saturation"),
-                   ("fuel_lean", "fuel_rich", "direction blindness"))
+#               severity information. Still true.
+# The direction pair (fuel_lean/fuel_rich) was removed 2026-09-12: they scored
+# identically only because residuals were served as absolute values. Signed,
+# they read 0.0845 vs 0.0034. p_anom still carries no SEVERITY, but it is no
+# longer direction-blind.
+IDENTICAL_PAIRS = (("coolant_hot", "coolant_very_hot", "severity saturation"),)
 
 # Named scenarios: channel -> additive offset in the channel's own unit.
 # Signs are physical: a cooling fault runs HOT, a lubrication fault runs hot
@@ -339,14 +344,17 @@ def injection_caveats() -> List[Dict[str, Any]]:
                   "'unknown', so RUL must never be rendered as minutes "
                   "remaining. It is a direction, not a duration.",
     }, {
-        "id": "residuals_reported_unsigned", "verified": True,
-        "value": "-0.8 bar injected reads 0.8",
-        "detail": "measured: the twin's residuals dict carries magnitudes, not "
-                  "signed deviations, so a pressure DROP and a pressure RISE of "
-                  "equal size are indistinguishable downstream. Anything "
-                  "comparing residuals to injected offsets must compare "
-                  "absolute values, and a UI cannot infer direction from "
-                  "residuals alone -- use expected vs features.",
+        "id": "residuals_are_signed", "verified": True,
+        "value": "-0.8 bar injected reads -0.8; +0.8 does not cross",
+        "detail": "the twin's residuals dict carries SIGNED deviations "
+                  "(measured - expected) as of e49cf96. It previously carried "
+                  "magnitudes: residual_calc applied abs() per channel while "
+                  "the deployed gate trains on signed deltas, so a 0.91 bar oil "
+                  "pressure COLLAPSE arrived as +0.91 and scored 0.3532 "
+                  "HEALTHY. Direction now reaches the classifier: -0.8 bar "
+                  "scores 0.9999 and labels lubrication_degradation, +0.8 bar "
+                  "scores 0.4411 and does not cross. A UI may read direction "
+                  "from the residual sign.",
     }, {
         "id": "four_twin_statuses_not_three", "verified": True,
         "value": list(KNOWN_STATUSES),
@@ -377,28 +385,53 @@ def injection_caveats() -> List[Dict[str, Any]]:
                   "physical faults. p_anom answers 'is something wrong', not "
                   "'how badly' or 'which way'. Pinned in IDENTICAL_PAIRS.",
     }, {
-        "id": "labels_reflect_channel_count_not_mechanism", "verified": False,
+        "id": "misfire_not_identifiable_from_mean_value_sensors",
+        "verified": True,
+        "value": "1 cyl at 0.62 trim == uniform 0.905 == fuel_pressure_dev frac 0.59",
+        "detail": "MEASURED and arithmetic, not a classifier weakness. A severe "
+                  "single-cylinder misfire (cylinder_fuel_trim 0.62 on one of "
+                  "four) delivers 0.905 of nominal fuel flow; fuel_pressure_dev "
+                  "applies a UNIFORM trim of 1.0 +/- 0.16*frac, so frac 0.59 "
+                  "delivers the same 0.905. MVEM reports one MEAN EGT across "
+                  "four cylinders and no crank-speed irregularity, so the two "
+                  "faults are the same point in the measured space. A forced "
+                  "severe misfire is detected at p_anom 0.9999 but labelled "
+                  "fuel_pressure_dev with dEGT -60.5 C and dFF -1.57 kg/h. The "
+                  "gate result is trustworthy; the type assignment between "
+                  "these two classes is UNIDENTIFIABLE and explains the "
+                  "misfire precision 0.754 / fuel_pressure_dev recall 0.734 "
+                  "pair in retrain_metrics_mvem.json. Separating them needs a "
+                  "sensor channel that does not exist yet: per-cylinder EGT or "
+                  "rpm irregularity. Present either as 'fuel/combustion fault, "
+                  "type uncertain' with fault_probabilities shown.",
+    }, {
+        "id": "labels_reflect_channel_count_not_mechanism", "verified": True,
         "value": "oil_hot -> sensor_drift; oil_hot+press_low -> lubrication",
         "detail": "measured: a lone oil-temperature excursion is labelled "
                   "sensor_drift, while the same excursion combined with a "
                   "pressure loss is labelled lubrication_degradation. Reading "
                   "a single implausible channel as an instrumentation problem "
-                  "is plausible behaviour, but it is a property of the "
-                  "Cantera-generated training set (~70% faithful), not "
-                  "validated physics.",
+                  "is plausible behaviour, but it is a property of the training "
+                  "set, not validated physics. (This block previously carried "
+                  "two 'value' keys, the second silently shadowing the first, "
+                  "and cited a Cantera training set that no longer exists -- "
+                  "the data is MVEM, mvem_v3.parquet, validated only at 5800 "
+                  "rpm WOT sea level.)",
     }, {
-        "id": "gate_is_non_monotonic", "verified": True,
-        "value": "coolant crosses at 0.038 C but not at -10 C",
-        "detail": "MEASURED, and it invalidates any reading of p_anom as "
-                  "severity. CASE 5 bisects the smallest crossing offset, "
-                  "CASE 6 applies a large one, and they disagree: coolant "
-                  "crosses at 0.0383 C yet -10 C scores 0.5965 and does not "
-                  "cross; rpm crosses at +88.96 yet +250 scores 0.5457 and "
-                  "does not; oil pressure never crosses by bisection although "
-                  "its residual resolution is 0.00019 bar. The gate is "
-                  "tree-based, so a threshold is a LEAF BOUNDARY, not a floor "
-                  "above which detection is guaranteed. Same phenomenon as the "
-                  "500 ft altitude leaf width in stress_sim.",
+        "id": "gate_monotone_where_measured", "verified": True,
+        "value": "CASE 6 scan found no non-monotonic channel",
+        "detail": "RETIRED 2026-09-12. The pinned non-monotonicity -- coolant "
+                  "crossing at 0.0383 C yet -10 C not crossing, rpm crossing at "
+                  "+88.96 yet +250 not crossing, oil pressure never crossing by "
+                  "bisection -- was an artifact of ABSOLUTE residuals folding "
+                  "both directions onto one value, so bisection and the large "
+                  "offset were probing different physical states under the same "
+                  "number. With signed residuals the CASE 6 scan finds no "
+                  "non-monotonic channel. p_anom still carries no SEVERITY "
+                  "(coolant_hot 0.9998 == coolant_very_hot 0.9998), and the "
+                  "gate is still tree-based, so a threshold remains a leaf "
+                  "boundary rather than a guaranteed detection floor. Measured "
+                  "at ONE operating point.",
     }, {
         "id": "oil_temperature_hypersensitive", "verified": True,
         "value": "0.0017 C crosses the gate",
@@ -537,7 +570,7 @@ def _self_test() -> None:
           "or which way")
 
     print("\nCASE 3  residual magnitude equals the injected magnitude")
-    print("  (the twin reports residuals UNSIGNED -- compare absolute values)")
+    print("  (residuals are SIGNED since e49cf96; magnitudes compared here)")
     for inj in results:
         if not inj.ok:
             continue

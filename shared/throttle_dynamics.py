@@ -48,6 +48,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from shared import atmosphere as atm
+from shared.stress_sim import HEALTHY_P_ANOM
 from shared.stress_sim import (
     DECLINED, GATE_THRESHOLD, REFUSED, SCORED,
     build_core, deck, deck_violations, envelope_verdict, reference_op,
@@ -781,7 +782,7 @@ def _self_test() -> None:
           f"a genuinely steady profile")
     check((s["peak_residual"] or 0.0) < 1e-6,
           f"steady profile produced residual {s['peak_residual']}")
-    check(abs((last.anomaly_probability or 0) - 0.5443998040908319) < 1e-9,
+    check(abs((last.anomaly_probability or 0) - HEALTHY_P_ANOM) < 1e-9,
           f"REGRESSION INVARIANT MOVED: {last.anomaly_probability}")
 
     print("\nCASE 2  reset isolation: the same profile twice must match exactly")

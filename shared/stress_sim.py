@@ -1,4 +1,4 @@
-﻿"""AERIS environmental stress simulator.
+"""AERIS environmental stress simulator.
 
 At what ambient conditions does the engine lose margin to the anomaly gate,
 asked before the mission flies.
@@ -32,6 +32,8 @@ so any cold day (negative DA) is extrapolation by construction.
 
 from __future__ import annotations
 
+import pathlib
+
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Tuple
@@ -39,7 +41,34 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from shared import atmosphere as atm
 
 STRESS_SIM_VERSION = "0.3.0"
-GATE_THRESHOLD = 0.65
+def _load_gate_threshold() -> float:
+    """Gate threshold has ONE owner: models/configs/reconstruction_config.json.
+
+    Was hard-coded 0.65 here and imported by fault_injection and
+    throttle_dynamics, so both suites judged against a threshold the service
+    had stopped using. The service decides at confidence_threshold (0.50 as of
+    the MVEM retrain, re-derived on validation engines). A suite asserting
+    0.65 produced self-contradictory output: fuel_lean at p_anom 0.0845 was
+    reported both "below the 0.65 gate" and "crossed the gate but
+    status=HEALTHY".
+    """
+    import json
+    cfg = (pathlib.Path(__file__).resolve().parents[1]
+           / "models" / "configs" / "reconstruction_config.json")
+    return float(json.loads(cfg.read_text(encoding="utf-8-sig"))["confidence_threshold"])
+
+
+GATE_THRESHOLD = _load_gate_threshold()
+
+# The zero-residual regression invariant, shared by fault_injection CASE 0 and
+# throttle_dynamics CASE 1. Both harnesses set measured == expected, so all five
+# residuals are exactly 0.0 and both must see the same score. Lives here because
+# stress_sim is the base module both import; keeping a copy in each created a
+# circular import. Re-pinned 2026-09-12: was 0.5443998040908319, measured
+# pre-MVEM-retrain. NOTE this is NOT the live service anchor -- a real MVEM
+# healthy cruise frame carries a +0.0163 bar oil pressure residual and scores
+# 0.3702. Both numbers are correct for their respective inputs.
+HEALTHY_P_ANOM = 0.36390550779530195
 DECK_REFERENCE_P_ANOM = 0.5443998040908319
 
 OP_KEYS = ("altitude_ft", "ambient_temperature_C", "throttle_pct", "rpm")
