@@ -655,9 +655,16 @@ def _self_test() -> None:
               f"{inj.p()} -- no crossing")
     if not nonmono:
         print("    none found")
-    check(nonmono > 0,
-          "no non-monotonicity found; the gate may have become monotone, in "
-          "which case revisit caveat gate_is_non_monotonic")
+    # Inverted 2026-09-12. This asserted nonmono > 0 because the ABSOLUTE
+    # serving path folded +offset and -offset onto one value, so bisection and
+    # the large-offset scan probed different physical states under the same
+    # number and disagreed. With SIGNED residuals (e49cf96) no channel is
+    # non-monotonic, and a REGRESSION would be a channel reappearing here.
+    check(nonmono == 0,
+          f"{nonmono} channel(s) non-monotonic: a small offset crosses the gate "
+          f"while a larger one in the same direction does not. Under SIGNED "
+          f"residuals this should not happen; suspect a serving-path transform "
+          f"or a classifier swap. See caveat gate_monotone_where_measured")
 
     crossed = [x for _, _, x in scan if x.crossed()]
     labels = sorted({str(x.fault_label) for x in crossed})
