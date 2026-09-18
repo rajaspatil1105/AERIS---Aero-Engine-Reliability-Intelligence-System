@@ -331,15 +331,23 @@ def _self_test() -> None:
     if f.status != STATUS_CRITICAL:
         fails.append("0.6 bar did not give CRITICAL")
 
-    print("\nCASE 3  the gap the gate missed -> ADVISORY")
+    # This case once expected ADVISORY, on the premise that the gate missed a
+    # -1.0 bar oil pressure drop (it scored 0.568 against a 0.65 threshold).
+    # Both numbers moved: residuals are now SIGNED, so a falling value no
+    # longer reads as healthy, and the threshold is 0.5. The gate catches the
+    # drop outright and FAULT outranks ADVISORY in the precedence table, so
+    # FAULT is correct. The property worth pinning is that this frame is
+    # never reported HEALTHY.
+    print("\nCASE 3  the drop the gate used to miss -> now caught by the gate")
     f = core.process(dict(p, oil_pressure_bar=p["oil_pressure_bar"] - 1.0))
     print(f"  {f.status:<12} {f.headline}")
-    print(f"  p_anom={f.anomaly_probability:.3f} (below "
-          f"{f.gate_threshold} -> gate says healthy)")
+    print(f"  p_anom={f.anomaly_probability:.3f} (threshold {f.gate_threshold})")
     for a in f.advisories:
         print(f"    {a}")
-    if f.status != STATUS_ADVISORY:
-        fails.append(f"2.16 bar gave {f.status}, expected ADVISORY")
+    if f.status == STATUS_HEALTHY:
+        fails.append("2.16 bar reported HEALTHY")
+    elif f.status != STATUS_FAULT:
+        fails.append(f"2.16 bar gave {f.status}, expected FAULT")
 
     print("\nCASE 4  outside envelope -> UNAVAILABLE, ML skipped")
     f = core.process(dict(p, rpm=1200.0))

@@ -157,3 +157,34 @@ confidence, rul_raw, rul_smoothed, rul_trusted, latency_ms. Schema version 2
 added `refusal_class`; rows written before the migration carry `null` there
 even when UNAVAILABLE, so treat null as "unknown, fetch the detail" rather
 than "not refused". Full detail is `GET /frames/{seq}`.
+
+## Known limitations
+
+The fleet's wear states are hand-set starting conditions, not measured
+histories. They were re-scaled (deficits multiplied by 0.18) so all fifteen
+engines sit inside the residual range the detector was trained on. The
+direction of the effect is real -- a worn engine runs hotter with lower oil
+pressure -- but the magnitudes are invented and should not be read as a wear
+model.
+
+Healthy oil-pressure residuals across the fleet now run from +0.048 bar at
+40 h to -0.058 bar at 2010 h, against a healthy-population p1 of -0.0696 bar
+measured over 360,000 training rows. All fifteen engines read HEALTHY at
+steady cruise.
+
+The anomaly score is U-shaped across the fleet, reaching a minimum of 0.3692
+near 1340 h where the oil-pressure residual crosses zero, then rising to
+0.4290 at 2010 h. The score responds to deviation magnitude in either
+direction, so it does not track engine hours monotonically. Monotonicity
+holds only under single-channel fault injection.
+
+Under injected faults, FORCED_FAULTS overwrites oil_pump_health rather than
+composing with each engine's wear, so a fresh engine and a worn engine both
+report 2.24 bar. Engine selection therefore has no effect once a fault is
+active.
+
+The baseline deck takes its four ops columns in the order rpm, throttle_pct,
+altitude_ft, ambient_temperature_C, which is NOT FEATURE_ORDER[:4]. The
+artifacts carry no feature_names_in_, so a re-ordering fails silently and
+produces plausible but meaningless residuals. check_deck_order.py guards this
+against golden values 3.1517436686614286 bar and 740.5491707976279 C.

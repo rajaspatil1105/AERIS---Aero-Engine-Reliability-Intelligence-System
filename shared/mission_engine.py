@@ -114,21 +114,21 @@ class FleetEngine:
 
 
 FLEET: Tuple[FleetEngine, ...] = (
-    FleetEngine("RTX915-0001", "HRN-01",   40.0, 1.000, 1.000, 0.000, "factory fresh"),
-    FleetEngine("RTX915-0002", "HRN-01",  180.0, 0.995, 0.995, 0.005, "run-in complete"),
-    FleetEngine("RTX915-0003", "HRN-02",  340.0, 0.985, 0.990, 0.012, "nominal"),
-    FleetEngine("RTX915-0004", "HRN-02",  520.0, 0.975, 0.980, 0.022, "nominal"),
-    FleetEngine("RTX915-0005", "HRN-03",  690.0, 0.960, 0.972, 0.035, "mid-life"),
-    FleetEngine("RTX915-0006", "HRN-03",  810.0, 0.948, 0.960, 0.048, "mid-life"),
-    FleetEngine("RTX915-0007", "HRN-04",  950.0, 0.930, 0.948, 0.062, "hot-climate ops"),
-    FleetEngine("RTX915-0008", "HRN-04", 1080.0, 0.915, 0.935, 0.078, "hot-climate ops"),
-    FleetEngine("RTX915-0009", "HRN-05", 1210.0, 0.898, 0.920, 0.095, "cooling pack due"),
-    FleetEngine("RTX915-0010", "HRN-05", 1340.0, 0.880, 0.905, 0.112, "cooling pack due"),
-    FleetEngine("RTX915-0011", "HRN-06", 1480.0, 0.862, 0.888, 0.130, "oil analysis flagged"),
-    FleetEngine("RTX915-0012", "HRN-06", 1620.0, 0.845, 0.870, 0.150, "oil analysis flagged"),
-    FleetEngine("RTX915-0013", "HRN-07", 1760.0, 0.826, 0.852, 0.172, "overhaul window"),
-    FleetEngine("RTX915-0014", "HRN-07", 1890.0, 0.808, 0.834, 0.195, "overhaul window"),
-    FleetEngine("RTX915-0015", "HRN-08", 2010.0, 0.790, 0.815, 0.220, "past soft limit"),
+    FleetEngine("RTX915-0001", "HRN-01",   40.0, 1.0000, 1.0000, 0.0000, "factory fresh"),
+    FleetEngine("RTX915-0002", "HRN-01",  180.0, 0.9991, 0.9991, 0.0009, "run-in complete"),
+    FleetEngine("RTX915-0003", "HRN-02",  340.0, 0.9973, 0.9982, 0.0022, "nominal"),
+    FleetEngine("RTX915-0004", "HRN-02",  520.0, 0.9955, 0.9964, 0.0040, "nominal"),
+    FleetEngine("RTX915-0005", "HRN-03",  690.0, 0.9928, 0.9950, 0.0063, "mid-life"),
+    FleetEngine("RTX915-0006", "HRN-03",  810.0, 0.9906, 0.9928, 0.0086, "mid-life"),
+    FleetEngine("RTX915-0007", "HRN-04",  950.0, 0.9874, 0.9906, 0.0112, "hot-climate ops"),
+    FleetEngine("RTX915-0008", "HRN-04", 1080.0, 0.9847, 0.9883, 0.0140, "hot-climate ops"),
+    FleetEngine("RTX915-0009", "HRN-05", 1210.0, 0.9816, 0.9856, 0.0171, "cooling pack due"),
+    FleetEngine("RTX915-0010", "HRN-05", 1340.0, 0.9784, 0.9829, 0.0202, "cooling pack due"),
+    FleetEngine("RTX915-0011", "HRN-06", 1480.0, 0.9752, 0.9798, 0.0234, "oil analysis flagged"),
+    FleetEngine("RTX915-0012", "HRN-06", 1620.0, 0.9721, 0.9766, 0.0270, "oil analysis flagged"),
+    FleetEngine("RTX915-0013", "HRN-07", 1760.0, 0.9687, 0.9734, 0.0310, "overhaul window"),
+    FleetEngine("RTX915-0014", "HRN-07", 1890.0, 0.9654, 0.9701, 0.0351, "overhaul window"),
+    FleetEngine("RTX915-0015", "HRN-08", 2010.0, 0.9622, 0.9667, 0.0396, "past soft limit"),
 )
 
 FLEET_BY_SERIAL: Dict[str, FleetEngine] = {e.serial: e for e in FLEET}

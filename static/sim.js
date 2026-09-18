@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 // AERIS SIMULATION -- drives the SERVER-SIDE mission engine via POST /sim/run.
 //
 // Rewritten 2026-09-12. The previous version posted hand-copied channel values
@@ -15,15 +15,13 @@ var SM = { poll:null, ses:null };
 
 // Operating points only. No channel values -- the server solves them, so these
 // cannot drift out of sync with the engine model again.
+// Presets now only JUMP the sliders; the sliders are the source of truth.
 var SM_PRESET = {
-  climb:  { throttle_pct:95, altitude_ft:6000, oat_c:10 },
-  cruise: { throttle_pct:80, altitude_ft:6000, oat_c:10 },
-  econ:   { throttle_pct:70, altitude_ft:8000, oat_c:6  }
+  climb:  { thr:95, alt:6000, oat:10 },
+  cruise: { thr:80, alt:6000, oat:10 },
+  econ:   { thr:70, alt:8000, oat:6  }
 };
 
-// Maps the existing select values to mission_engine FORCED_FAULTS keys.
-// sensor_drift is absent by design: it is a measurement offset, not a physical
-// degradation, so the mission engine does not forge one.
 var SM_FAULT = {
   none:        null,
   cooling:     "cooling_degradation",
@@ -41,16 +39,18 @@ function smVal(id, dflt) {
 
 async function smStart() {
   if (SM.poll) return;
-  var pk = document.getElementById("sm-preset").value;
   var fk = document.getElementById("sm-fault").value;
-  var base = SM_PRESET[pk];
   var fault = SM_FAULT[fk] || null;
+  var base = { throttle_pct: smVal("sm-thr", 80),
+               altitude_ft:  smVal("sm-alt", 6000),
+               oat_c:        smVal("sm-oat", 10) };
+  var pk = base.throttle_pct + "% " + base.altitude_ft + "ft";
   var dur = smVal("sm-dur", 300);
   var onset = smVal("sm-onset", 0);
   var clear = smVal("sm-clear", 0);
 
   var body = {
-    engine_serial: "RTX915-0003",
+    engine_serial: document.getElementById("sm-eng").value || "RTX915-0003",
     throttle_pct: base.throttle_pct,
     altitude_ft: base.altitude_ft,
     oat_c: base.oat_c,
@@ -61,7 +61,7 @@ async function smStart() {
   };
   if (fault) {
     body.fault = fault;
-    body.fault_severity = "severe";
+    body.fault_severity = document.getElementById("sm-sev").value || "severe";
     body.fault_at_s = onset;
     // The form asks for a DURATION after onset; the route wants an absolute
     // mission time. 0 means "never clear".
@@ -106,9 +106,65 @@ function smStop(msg, quiet) {
   } else if (msg) { smLog(msg); }
 }
 
+function smShow() {
+  document.getElementById("sm-thr-v").textContent = smVal("sm-thr", 80) + " %";
+  document.getElementById("sm-alt-v").textContent = smVal("sm-alt", 6000) + " ft";
+  document.getElementById("sm-oat-v").textContent = smVal("sm-oat", 10) + " C";
+  // Honest warnings rather than silent bad demos.
+  var f = document.getElementById("sm-fault").value;
+  var thr = smVal("sm-thr", 80), w = "";
+  if (f === "cooling")
+    w = "cooling_degradation is detected at only 0.19 overall: the engine is " +
+        "thermostatted, so a weak pump hides at low load. Needs high throttle " +
+        "and warm air to show at all.";
+  else if (f === "misfire")
+    w = "misfire is detected reliably but usually LABELLED fuel_pressure_dev " +
+        "-- the two are the same point under mean-value sensors.";
+  else if (f === "fuel")
+    w = "fuel_pressure_dev recall is 0.73, the lowest of the four strong " +
+        "classes, for the same reason.";
+  if (f === "cooling" && thr < 70)
+    w += " At " + thr + "% throttle it will almost certainly not be detected.";
+  document.getElementById("sm-warn").innerHTML = w;
+}
+
+async function smEngines() {
+  var sel = document.getElementById("sm-eng");
+  try {
+    var r = await fetch("/sim/fleet");
+    var d = await r.json();
+    var list = d.fleet || d.engines || d;
+    list.forEach(function (e) {
+      var o = document.createElement("option");
+      o.value = e.serial;
+      o.textContent = e.serial + " -- " + e.hours + " h, " + e.note;
+      if (e.serial === "RTX915-0003") o.selected = true;
+      sel.appendChild(o);
+    });
+  } catch (err) {
+    var o = document.createElement("option");
+    o.value = "RTX915-0003"; o.textContent = "RTX915-0003 (fleet list unavailable)";
+    sel.appendChild(o);
+  }
+}
+
 (function smWire() {
   document.getElementById("sm-start").onclick = smStart;
   document.getElementById("sm-stop").onclick = function () { smStop(); };
+  ["sm-thr", "sm-alt", "sm-oat", "sm-fault"].forEach(function (id) {
+    document.getElementById(id).oninput = smShow;
+    document.getElementById(id).onchange = smShow;
+  });
+  document.getElementById("sm-preset").onchange = function () {
+    var p = SM_PRESET[this.value];
+    if (!p) return;
+    document.getElementById("sm-thr").value = p.thr;
+    document.getElementById("sm-alt").value = p.alt;
+    document.getElementById("sm-oat").value = p.oat;
+    smShow();
+  };
+  smShow();
+  smEngines();
 })();
 // FAULT ALARM -- watches the verdict panel and beeps on the
 // HEALTHY -> FAULT transition. Deliberately not inside render():

@@ -836,13 +836,40 @@ def _self_test() -> None:
             print(f"  {k:<20} resolution   --      admission tol {tol:<8.4f} "
                   f"(score never moved)")
             continue
+        # Superseded assertion: check(tol < resol). Comparing tolerance to
+        # resolution asks whether the gate can tell two admitted frames apart,
+        # which says nothing about safety. It also ratcheted the tolerances in
+        # both directions: EGT_mean_C resolves at 0.00403 C -- an artifact of
+        # baselines fitted to noiseless Cantera output, not a real sensitivity
+        # -- while fuelflow_kgh (0.109) and oil_temperature_C (0.230) resolve
+        # far coarser than the tolerances now set for them. The 0.4 x resol
+        # suggestion is therefore not actionable and is no longer asserted on.
+        # What matters is how far the SCORE moves inside the admitted band,
+        # measured against the distance to the gate.
         suggest[k] = round(0.4 * resol, 6)
-        flag = "" if tol < resol else "   <-- TOO LOOSE"
+        target = _extract(deck().predict(dict(op_hi)))
+        target["rpm"] = float(op_hi["rpm"])
+        scores = []
+        for frac in (-1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0):
+            st = dict(target)
+            st[k] = target[k] + frac * tol
+            q = _score_state(core, op_hi, st)
+            if q is not None:
+                scores.append(float(q))
+        spread = (max(scores) - min(scores)) if scores else 0.0
+        margin = GATE_THRESHOLD - pb
+        ratio = (spread / margin) if margin > 0 else float("inf")
         print(f"  {k:<20} resolution {resol:9.5f}  admission tol "
-              f"{tol:<8.4f}{flag}")
-        check(tol < resol,
-              f"{k}: admission tol {tol} >= gate resolution {resol:.5f}, so an "
-              f"admitted frame can score differently from equilibrium")
+              f"{tol:<8.4f} spread {spread:.6f} = {ratio * 100:5.2f}% of "
+              f"margin {margin:.4f}")
+        check(max(scores) < GATE_THRESHOLD if scores else True,
+              f"{k}: p_anom reaches the gate inside the admitted band "
+              f"+/-{tol}, so an admitted frame can be reported faulty from "
+              f"admission slop alone")
+        check(ratio < 0.10,
+              f"{k}: score spread {spread:.6f} across the admitted band is "
+              f"{ratio * 100:.1f}% of the {margin:.4f} gate margin "
+              f"(limit 10%) -- admission is too loose for this gate")
     if suggest:
         print(f"  suggested GATE_RESID_TOL (0.4 x measured): {suggest}")
     if unresolved:

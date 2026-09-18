@@ -163,7 +163,11 @@ def _self_test() -> None:
             fails.append(f"{n} not rising with throttle -- input order suspect")
 
     print("\nCASE 3  below trained envelope (idle)")
-    r = deck.predict(dict(op, rpm=1200.0, throttle_pct=20.0))
+    # throttle_pct=20 is the INCLUSIVE lower bound of the trained range
+    # [20, 100], so it does not breach; only rpm did, and this case asserted
+    # two violations. 15 % is genuinely below the floor, so a point called
+    # "idle" now breaches on both axes as the case name implies.
+    r = deck.predict(dict(op, rpm=1200.0, throttle_pct=15.0))
     print(f"  in_envelope={r.in_envelope}")
     for v in r.violations:
         print(f"    {v}")

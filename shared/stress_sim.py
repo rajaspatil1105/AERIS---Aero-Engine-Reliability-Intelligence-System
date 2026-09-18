@@ -69,7 +69,6 @@ GATE_THRESHOLD = _load_gate_threshold()
 # healthy cruise frame carries a +0.0163 bar oil pressure residual and scores
 # 0.3702. Both numbers are correct for their respective inputs.
 HEALTHY_P_ANOM = 0.36390550779530195
-DECK_REFERENCE_P_ANOM = 0.5443998040908319
 
 OP_KEYS = ("altitude_ft", "ambient_temperature_C", "throttle_pct", "rpm")
 DEPENDENT = ("fuelflow_kgh", "coolant_temp_C", "EGT_mean_C",
@@ -598,8 +597,8 @@ def _self_test() -> None:
           f"status={c.status} resid={c.largest_residual}")
     check(c.scored, f"reference not scored: {c.why()}")
     if c.anomaly_probability is not None:
-        d = abs(c.anomaly_probability - DECK_REFERENCE_P_ANOM)
-        print(f"  delta from {DECK_REFERENCE_P_ANOM}: {d:.3e}")
+        d = abs(c.anomaly_probability - HEALTHY_P_ANOM)
+        print(f"  delta from {HEALTHY_P_ANOM}: {d:.3e}")
         check(d < 1e-9, f"synthesis drifted by {d:.3e}")
     check(c.largest_residual == 0.0,
           f"residuals not zero by construction: {c.largest_residual}")

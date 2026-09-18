@@ -132,32 +132,49 @@
 <section id="v-sim" class="view">
   <div class="rp-head">
     <div><div class="rp-title">MISSION SIMULATION</div>
-      <div class="dim">preset operating points inside the trained envelope</div></div>
+      <div class="dim">set an operating point inside the trained envelope;
+        the server solves MVEM and scores every frame</div></div>
   </div>
   <div class="rep-grid">
     <div class="rep-card"><h3>OPERATING POINT</h3>
+      <div class="kv"><span>engine</span><select id="sm-eng"></select></div>
+      <div class="kv"><span>throttle <b id="sm-thr-v">80 %</b></span>
+        <input id="sm-thr" type="range" min="20" max="100" step="1" value="80"></div>
+      <div class="kv"><span>altitude <b id="sm-alt-v">6000 ft</b></span>
+        <input id="sm-alt" type="range" min="0" max="22800" step="100" value="6000"></div>
+      <div class="kv"><span>OAT <b id="sm-oat-v">10 C</b></span>
+        <input id="sm-oat" type="range" min="-39" max="39" step="1" value="10"></div>
       <div class="kv"><span>preset</span><select id="sm-preset">
+        <option value="">-- jump to --</option>
         <option value="climb">climb power 95% 6000 ft 10 C</option>
-        <option value="cruise" selected>high cruise 80% 6000 ft 10 C</option>
+        <option value="cruise">high cruise 80% 6000 ft 10 C</option>
         <option value="econ">econ cruise 70% 8000 ft 6 C</option>
       </select></div>
       <div class="kv"><span>mission length (s)</span>
         <input id="sm-dur" type="number" value="300" min="30" step="10"></div>
-      <div class="kv"><span>speed</span><select id="sm-rate">
+      <div class="kv"><span>playback</span><select id="sm-rate">
         <option value="1">1x realtime</option><option value="2">2x</option>
-        <option value="5">5x</option></select></div>
+        <option value="5">5x</option><option value="0">as fast as possible</option>
+      </select></div>
     </div>
     <div class="rep-card"><h3>FAULT INJECTION</h3>
       <div class="kv"><span>fault</span><select id="sm-fault">
         <option value="none">none (healthy mission)</option>
-        <option value="cooling" selected>cooling degradation</option>
-        <option value="lubrication">lubrication degradation</option>
+        <option value="lubrication" selected>lubrication degradation</option>
+        <option value="misfire">misfire (single cylinder)</option>
         <option value="fuel">fuel pressure deviation</option>
+        <option value="cooling">cooling degradation (weak class)</option>
+      </select></div>
+      <div class="kv"><span>severity</span><select id="sm-sev">
+        <option value="mild">mild</option>
+        <option value="moderate">moderate</option>
+        <option value="severe" selected>severe</option>
       </select></div>
       <div class="kv"><span>onset (s)</span>
         <input id="sm-onset" type="number" value="60" min="0" step="10"></div>
       <div class="kv"><span>clears after (s)</span>
         <input id="sm-clear" type="number" value="180" min="0" step="10"></div>
+      <div class="dim" id="sm-warn" style="margin-top:6px"></div>
     </div>
     <div class="rep-card"><h3>RUN</h3>
       <div class="rp-actions">
@@ -167,9 +184,12 @@
     </div>
   </div>
   <div class="rep-card" style="margin-top:10px"><h3>NOTE</h3>
-    <div class="dim">Presets are operating points the twin was trained on.
-    Level flight only, constant throttle. Frames post to the same /frames
-    endpoint as any other source; switch to TACTICAL to watch them arrive.</div>
+    <div class="dim">Level flight, constant throttle. The operating point is
+    fixed for the run: the twin only scores steady state, so mid-flight slider
+    changes would be refused as transients. Physics runs SERVER-SIDE in
+    shared/mission_engine.py and every frame goes through the same
+    /frames scoring path as any other source &mdash; switch to TACTICAL to
+    watch them arrive, or REPLAY to scrub the finished run.</div>
   </div>
 </section>
 <section id="v-config" class="view">
