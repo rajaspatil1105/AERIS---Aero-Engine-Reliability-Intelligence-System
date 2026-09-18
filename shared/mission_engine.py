@@ -151,7 +151,16 @@ def fleet_listing() -> List[Dict[str, Any]]:
 # sitting at 102 C adds fast. Units are dimensionless "damage", 1.0 = trigger.
 
 COOLANT_KNEE_C = 95.0        # above this, thermal damage accrues
-OIL_KNEE_C = 105.0
+OIL_KNEE_C = 102.0   # was 105.0, which this thermal model can never
+# reach: MVEM oil temperature peaks at 103.08 C even at 18000 ft WOT on a
+# 35 C day, so lubrication_degradation could only ever arrive by injection.
+# Real Rotax 915iS limits are 130 C oil / 120 C coolant, with service
+# guidance to stay under 120 C and a normal range of ~88-110 C, so 105 was
+# the defensible number and it is the MODEL that under-predicts oil
+# temperature, not the knee that was wrong. 102 C sits just under the
+# model ceiling so damage accrues only under sustained abuse and never in
+# normal cruise, preserving the "damage only above a knee" property.
+# Revisit if the thermal model is recalibrated to realistic hot-day temps.
 POWER_KNEE_KW = 95.0
 THERMAL_FULL_S = 2400.0      # seconds at knee+10 C to reach 1.0
 OIL_FULL_S = 3000.0
