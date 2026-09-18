@@ -69,3 +69,8 @@ resid_sample.parquet
 *.envbak
 *.thrbak
 *.mvembak
+
+*.bak*
+*.presliders
+*.scaled
+
