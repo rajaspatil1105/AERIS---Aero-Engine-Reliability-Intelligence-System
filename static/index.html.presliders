@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AERIS TACTICAL</title>
+<link rel="stylesheet" href="aeris.css?v=9">
+<link rel="stylesheet" href="aeris2.css?v=9">
+</head><body>
+
+<div id="untrusted">MODELS UNVALIDATED &mdash; gate F1 0.907 / ROC-AUC 0.985 on
+  held-out engines &middot; RUL R&sup2; &minus;0.103, ordering only
+  &middot; cooling_degradation 0.19 weak class &middot; synthetic MVEM data,
+  one validated operating point. Nothing here is airworthiness evidence.</div>
+
+<header id="strip">
+  <span class="brand">AERIS</span>
+  <span class="f"><i>UAV</i><b id="h-uav">ROTAX 915 iS</b></span>
+  <span class="f"><i>SYS</i><b id="h-sys">--</b></span>
+  <span class="f"><i>LATENCY</i><b id="h-lat">-- ms</b></span>
+  <span class="f"><i>MODE</i><b id="h-mode">LIVE</b></span>
+  <span class="f"><i>SESSION</i><b id="h-ses">--</b></span>
+  <span class="f"><i>UTC</i><b id="h-utc">--</b></span>
+  <span id="link" class="down">NO LINK</span>
+</header>
+
+<div id="shell">
+  <nav id="rail">
+    <button class="tab on" data-view="tactical"><span>[T]</span>TACTICAL</button>
+    <button class="tab" data-view="replay"><span>[R]</span>REPLAY</button>
+    <button class="tab" data-view="sim"><span>[S]</span>SIMULATION</button>
+    <button class="tab" data-view="report"><span>[D]</span>REPORT</button>
+    <div class="rail-sp"></div>
+    <button class="tab" data-view="config"><span>[C]</span>CONFIG</button>
+  </nav>
+
+  <div id="stage">
+  <div id="rp-bar" style="display:none">
+    <span class="f"><i>SESSION</i>
+      <select id="rp-ses"></select></span>
+    <span class="f"><i>FRAME</i><b id="rp-pos">-- / --</b></span>
+    <button id="rp-first" title="first">&#124;&lt;</button>
+    <button id="rp-prev" title="step back">&lt;</button>
+    <button id="rp-play" title="play">&#9654;</button>
+    <button id="rp-next" title="step forward">&gt;</button>
+    <button id="rp-last" title="last">&gt;&#124;</button>
+    <input id="rp-scrub" type="range" min="0" max="0" value="0">
+    <span class="f"><i>STORED FRAME</i><b id="rp-stamp">--</b></span>
+        <div id="rp-strip"></div>
+
+  </div>
+  <main id="grid">
+    <section class="panel" id="verdict" style="grid-area:verdict">
+      <div class="body" id="p-status"><span class="dim">no engine</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:schem">
+      <h2>ENGINE SCHEMATIC <i>residual tint</i></h2>
+      <div class="body" id="p-schem"><span class="dim">no engine</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:diag">
+      <h2>DIAGNOSIS <i>gate + multiclass</i></h2>
+      <div class="body" id="p-diag"><span class="dim">no frame scored</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:resid">
+      <h2>RESIDUAL DELTA VECTOR <i>measured vs physics</i></h2>
+      <div class="body" id="p-resid"><span class="dim">no engine</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:refuse">
+      <h2>ADMISSION <i>steady-state gate</i></h2>
+      <div class="body" id="p-refuse"><span class="dim">not evaluated</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:rul">
+      <h2>RUL <i>ordering only</i></h2>
+      <div class="body" id="p-rul"><span class="dim">no engine</span></div>
+    </section>
+
+    <section class="panel placeholder" style="grid-area:health">
+      <h2>HEALTH INDEX <i>no composite defined</i></h2>
+      <div class="body"><span class="dim">no weighting defined over the nine
+        measured channels</span><span class="tag">NOT DEFINED</span></div>
+    </section>
+
+    <section class="panel" style="grid-area:gauges">
+      <h2>LIVE CHANNELS <i>9 measured</i></h2>
+      <div class="body" id="p-gauges"><span class="dim">no engine</span></div>
+    </section>
+
+    <section class="panel placeholder tile" style="grid-area:cht">
+      <h2>CHT 1-4 <i>C</i></h2>
+      <div class="body"><b>--</b><span class="tag">NO PROBES</span></div>
+    </section>
+    <section class="panel placeholder tile" style="grid-area:egt">
+      <h2>EGT 1-4 <i>C</i></h2>
+      <div class="body"><b>--</b><span class="tag">ONE SENSOR</span></div>
+    </section>
+    <section class="panel placeholder tile" style="grid-area:map">
+      <h2>MAP <i>bar</i></h2>
+      <div class="body"><b>--</b><span class="tag">NO SENSOR</span></div>
+    </section>
+    <section class="panel placeholder tile" style="grid-area:vib">
+      <h2>VIBRATION <i>RMS 1x/2x/3x</i></h2>
+      <div class="body"><b>--</b><span class="tag">NO ACCEL</span></div>
+    </section>
+    <section class="panel placeholder tile" style="grid-area:elec">
+      <h2>ELECTRICAL <i>V / A</i></h2>
+      <div class="body"><b>--</b><span class="tag">NOT WIRED</span></div>
+    </section>
+    <section class="panel placeholder tile" style="grid-area:timing">
+      <h2>INJ TIMING <i>deg</i></h2>
+      <div class="body"><b>--</b><span class="tag">NOT ON BUS</span></div>
+    </section>  </main>
+
+<section id="v-report" class="view">
+  <div class="rp-head">
+    <div>
+      <div class="rp-title">MISSION REPORT</div>
+      <div class="dim" id="rep-sub">select a session</div>
+    </div>
+    <div class="rp-actions">
+      <select id="rep-ses"></select>
+      <a id="rep-csv" class="btn" href="#" download>DOWNLOAD CSV</a>
+      <a id="rep-pdf" class="btn" href="#" download>DOWNLOAD PDF</a>
+    </div>
+  </div>
+  <div id="rep-body"><div class="dim">loading…</div></div>
+</section>
+
+<section id="v-sim" class="view">
+  <div class="rp-head">
+    <div><div class="rp-title">MISSION SIMULATION</div>
+      <div class="dim">preset operating points inside the trained envelope</div></div>
+  </div>
+  <div class="rep-grid">
+    <div class="rep-card"><h3>OPERATING POINT</h3>
+      <div class="kv"><span>preset</span><select id="sm-preset">
+        <option value="climb">climb power 95% 6000 ft 10 C</option>
+        <option value="cruise" selected>high cruise 80% 6000 ft 10 C</option>
+        <option value="econ">econ cruise 70% 8000 ft 6 C</option>
+      </select></div>
+      <div class="kv"><span>mission length (s)</span>
+        <input id="sm-dur" type="number" value="300" min="30" step="10"></div>
+      <div class="kv"><span>speed</span><select id="sm-rate">
+        <option value="1">1x realtime</option><option value="2">2x</option>
+        <option value="5">5x</option></select></div>
+    </div>
+    <div class="rep-card"><h3>FAULT INJECTION</h3>
+      <div class="kv"><span>fault</span><select id="sm-fault">
+        <option value="none">none (healthy mission)</option>
+        <option value="cooling" selected>cooling degradation</option>
+        <option value="lubrication">lubrication degradation</option>
+        <option value="fuel">fuel pressure deviation</option>
+      </select></div>
+      <div class="kv"><span>onset (s)</span>
+        <input id="sm-onset" type="number" value="60" min="0" step="10"></div>
+      <div class="kv"><span>clears after (s)</span>
+        <input id="sm-clear" type="number" value="180" min="0" step="10"></div>
+    </div>
+    <div class="rep-card"><h3>RUN</h3>
+      <div class="rp-actions">
+        <button id="sm-start" class="btn">START</button>
+        <button id="sm-stop" class="btn">STOP</button></div>
+      <div id="sm-log" class="dim" style="margin-top:8px">idle</div>
+    </div>
+  </div>
+  <div class="rep-card" style="margin-top:10px"><h3>NOTE</h3>
+    <div class="dim">Presets are operating points the twin was trained on.
+    Level flight only, constant throttle. Frames post to the same /frames
+    endpoint as any other source; switch to TACTICAL to watch them arrive.</div>
+  </div>
+</section>
+<section id="v-config" class="view">
+  <div class="rp-title">CONFIG / ABOUT</div>
+  <div id="cfg-body"><div class="dim">loading…</div></div>
+</section>
+  </div>
+</div>
+
+<footer id="bar">
+  <span class="f"><i>THROTTLE</i><b id="b-thr">--</b></span>
+  <span class="f"><i>RPM</i><b id="b-rpm">--</b></span>
+  <span class="f"><i>ALT</i><b id="b-alt">--</b></span>
+  <span class="f"><i>OAT</i><b id="b-oat">--</b></span>
+  <span class="f"><i>FRAMES</i><b id="b-cnt">0</b></span>
+  <span class="f"><i>POLL</i><b id="b-poll">500 ms</b></span>
+  <span class="f ph"><i>MAP</i><b>-- <span class="tag">PLANNED</span></b></span>
+  <span class="f ph"><i>VIB</i><b>-- <span class="tag">PLANNED</span></b></span>
+</footer>
+
+<script src="schematic.js?v=9"></script>
+<script src="aeris.js?v=9"></script>
+<script src="replay.js?v=9"></script>
+<script src="sim.js?v=9"></script>
+</body></html>
