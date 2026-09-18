@@ -178,10 +178,15 @@ near 1340 h where the oil-pressure residual crosses zero, then rising to
 direction, so it does not track engine hours monotonically. Monotonicity
 holds only under single-channel fault injection.
 
-Under injected faults, FORCED_FAULTS overwrites oil_pump_health rather than
-composing with each engine's wear, so a fresh engine and a worn engine both
-report 2.24 bar. Engine selection therefore has no effect once a fault is
-active.
+Injected faults compose multiplicatively with each engine's wear, so the
+engine selector still matters under fault: severe lubrication at cruise gives
+2.2400 bar on RTX915-0001 (fresh), 2.2189 on RTX915-0007 and 2.1654 on
+RTX915-0015, against healthy values of 3.2000, 3.1699 and 3.0934. Bearing wear
+composes additively. The two fuel-trim faults (misfire, fuel_pressure_dev) do
+not compose, because the fleet carries no per-cylinder trim to compose with.
+A composed fault on a worn engine is deeper than the fault depths the
+classifier was trained on, so the type label is less certain there even though
+detection is not.
 
 The baseline deck takes its four ops columns in the order rpm, throttle_pct,
 altitude_ft, ambient_temperature_C, which is NOT FEATURE_ORDER[:4]. The

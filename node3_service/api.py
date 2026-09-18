@@ -551,7 +551,12 @@ def create_app() -> FastAPI:
             if body.fault not in me.FORCED_FAULTS:
                 raise HTTPException(422, "fault must be one of %s"
                                     % sorted(me.FORCED_FAULTS))
-            forced = me.FORCED_FAULTS[body.fault](body.fault_severity)
+            # Pass the resolved fleet engine so the fault composes with its
+            # wear instead of overwriting it. Without this a factory-fresh
+            # engine and one at 2010 h both reported oil_pressure 2.2400 bar
+            # under severe lubrication, and the engine selector had no effect
+            # once a fault was active.
+            forced = me.FORCED_FAULTS[body.fault](body.fault_severity, engine)
 
         st.core.reset()
         st.prev_payload = None

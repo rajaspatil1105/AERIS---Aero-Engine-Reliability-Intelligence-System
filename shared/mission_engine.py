@@ -1,4 +1,4 @@
-﻿"""
+"""
 AERIS -- mission engine. Shared core for all three simulator modes.
 
 WHY THIS FILE EXISTS
@@ -240,20 +240,38 @@ def apply_degradation(fs: mvem.FaultState, st: StressState,
 SEV_FRAC = {"mild": 0.35, "moderate": 0.65, "severe": 1.0}
 
 
-def _forced(kind: str, severity: str = "moderate") -> mvem.FaultState:
+def _forced(kind: str, severity: str = "moderate",
+            base: Optional[FleetEngine] = None) -> mvem.FaultState:
+    """Build a forced fault, COMPOSED with the engine's existing wear.
+
+    Previously this started from a bare FaultState(), so severe lubrication
+    always produced oil_pump_health 0.70 whatever engine was selected -- a
+    factory-fresh engine and one at 2010 h both reported 2.2400 bar and the
+    dropdown had no effect once a fault was active. apply_degradation() has
+    always composed with `base`; this path now matches it.
+
+    Deficits are applied MULTIPLICATIVELY, so a fault on a worn pump lands
+    worse than the same fault on a fresh one, and the ordering across the
+    fleet is preserved. NOTE this means a forced fault on a worn engine is
+    deeper than the depths in generate_mvem_dataset.build_fault() that the
+    classifier was trained on; the type label may be less reliable there
+    even though detection is not.
+    """
     if severity not in SEV_FRAC:
         raise MissionEngineError("severity must be one of %s"
                                  % sorted(SEV_FRAC))
     frac = SEV_FRAC[severity]
-    fs = mvem.FaultState()
+    fs = base.fault_state() if base is not None else mvem.FaultState()
     if kind == "cooling_degradation":
         # Detected only ~0.19 of the time and that is real: the thermostat
         # holds 88 C until heat rejection exceeds what the weak pump carries.
         # Force this at high throttle and warm ambient or it will not show.
-        fs.coolant_pump_health = max(0.05, 1.0 - 0.45 * frac)
+        fs.coolant_pump_health = max(
+            0.05, fs.coolant_pump_health * (1.0 - 0.45 * frac))
     elif kind == "lubrication_degradation":
-        fs.oil_pump_health = max(0.05, 1.0 - 0.30 * frac)
-        fs.bearing_wear = min(1.0, 0.25 * frac)
+        fs.oil_pump_health = max(
+            0.05, fs.oil_pump_health * (1.0 - 0.30 * frac))
+        fs.bearing_wear = min(1.0, fs.bearing_wear + 0.25 * frac)
     elif kind == "misfire":
         fs.cylinder_fuel_trim = [max(0.05, 1.0 - 0.38 * frac), 1.0, 1.0, 1.0]
     elif kind == "fuel_pressure_dev":
@@ -269,7 +287,7 @@ def _forced(kind: str, severity: str = "moderate") -> mvem.FaultState:
 # sensor_drift is absent on purpose: it is a measurement-layer offset added
 # after mvem.solve(), not a FaultState the engine can be solved with. Forcing
 # it needs a post-measurement hook in run_mission, which does not exist yet.
-FORCED_FAULTS = {k: (lambda sev, _k=k: _forced(_k, sev))
+FORCED_FAULTS = {k: (lambda sev, base=None, _k=k: _forced(_k, sev, base))
                  for k in ("cooling_degradation", "lubrication_degradation",
                            "misfire", "fuel_pressure_dev")}
 
