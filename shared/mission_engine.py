@@ -151,7 +151,7 @@ def fleet_listing() -> List[Dict[str, Any]]:
 # sitting at 102 C adds fast. Units are dimensionless "damage", 1.0 = trigger.
 
 COOLANT_KNEE_C = 95.0        # above this, thermal damage accrues
-OIL_KNEE_C = 102.0   # was 105.0, which this thermal model can never
+OIL_KNEE_C = 94.0  # was 102.0; cruise oil is regulated at 90 C; hot WOT reaches 98.8
 # reach: MVEM oil temperature peaks at 103.08 C even at 18000 ft WOT on a
 # 35 C day, so lubrication_degradation could only ever arrive by injection.
 # Real Rotax 915iS limits are 130 C oil / 120 C coolant, with service
@@ -162,9 +162,9 @@ OIL_KNEE_C = 102.0   # was 105.0, which this thermal model can never
 # normal cruise, preserving the "damage only above a knee" property.
 # Revisit if the thermal model is recalibrated to realistic hot-day temps.
 POWER_KNEE_KW = 95.0
-THERMAL_FULL_S = 2400.0      # seconds at knee+10 C to reach 1.0
-OIL_FULL_S = 3000.0
-POWER_FULL_S = 5400.0
+THERMAL_FULL_S = 36000.0  # was 120000.0; 40 h hot WOT -> ~0.79 cooling damage
+OIL_FULL_S = 130000.0  # was 30000.0; 4.8 C over knee for 40 h -> ~0.53 oil damage
+POWER_FULL_S = 270000.0  # was 5400.0, x50 so a 40 h abusive mission degrades, not kills
 CYCLE_FULL_N = 400.0         # throttle excursions >30 %/s to reach 1.0
 CYCLE_RATE_PCT_S = 30.0
 
@@ -397,8 +397,28 @@ def run_mission(profile: Sequence[Setpoint],
     t_end = pts[-1].t_s
     n = int(math.floor(t_end / dt_s)) + 1
 
-    for i in range(n):
-        t = i * dt_s
+    fine_dt = dt_s
+    coarse_dt = 20.0 if t_end > 3600.0 else fine_dt
+    _marks = [m for m in (forced_at_s, forced_clear_s) if m is not None]
+
+    def _grid():
+        """(t, step) pairs. 1 s where it matters, coarse in settled cruise."""
+        tt = 0.0
+        while tt <= t_end + 1e-9:
+            step = fine_dt
+            if coarse_dt > fine_dt and tt > event_until:
+                a = _interp(pts, tt)
+                b = _interp(pts, min(t_end, tt + coarse_dt))
+                if (abs(b[0] - a[0]) < 1e-9 and abs(b[1] - a[1]) < 1e-6
+                        and abs(b[2] - a[2]) < 1e-6):
+                    step = coarse_dt
+            for m in _marks:
+                if tt < m < tt + step:
+                    step = m - tt
+            yield tt, step
+            tt += step
+
+    for i, (t, dt_s) in enumerate(_grid()):
         thr, alt, oat = _interp(pts, t)
         dthr = (thr - prev_thr) / dt_s
         prev_thr = thr
@@ -436,7 +456,7 @@ def run_mission(profile: Sequence[Setpoint],
 
         transient = abs(dthr) > 0.5 or t <= event_until
         due = emit_event_s if transient else emit_cruise_s
-        if t - last_emit < due and 0 < i < n - 1:
+        if t - last_emit < due and i > 0 and t < t_end - 1e-9:
             continue
         last_emit = t
 
