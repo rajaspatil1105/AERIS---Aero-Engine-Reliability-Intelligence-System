@@ -209,18 +209,26 @@ DEGRADE = {
 }
 
 
+# Health moves from DEGRADE_ONSET onward and is fully applied at counter
+# 1.0; the fault is only named once it is DEGRADE_ANNOUNCE through that
+# walk. Previously nothing moved below 1.0, so a 40 h abusive mission
+# read HEALTHY with 0.79 cooling damage on the books.
+DEGRADE_ONSET = 0.35
+DEGRADE_ANNOUNCE = 0.60
+
+
 def apply_degradation(fs: mvem.FaultState, st: StressState,
                       base: FleetEngine) -> List[str]:
     """Walk FaultState knobs from accumulated stress. Returns newly fired names."""
     fired: List[str] = []
     for counter, (knob, gain, label) in DEGRADE.items():
-        over = getattr(st, counter) - 1.0
-        if over <= 0.0:
+        raw = getattr(st, counter)
+        if raw <= DEGRADE_ONSET:
             continue
-        if label not in st.triggered:
+        frac = min(1.0, (raw - DEGRADE_ONSET) / (1.0 - DEGRADE_ONSET))
+        if frac >= DEGRADE_ANNOUNCE and label not in st.triggered:
             st.triggered.append(label)
             fired.append(label)
-        frac = min(1.0, over)
         if knob == "cylinder_fuel_trim":
             t = max(0.05, 1.0 + gain * frac)
             fs.cylinder_fuel_trim = [t, 1.0, 1.0, 1.0]   # one weak cylinder
