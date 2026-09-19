@@ -57,6 +57,8 @@ class MissionPlan:
     transit_km: float
     loiter_h: float
     clamped: List[str]
+    route: list = None          # [(lat, lon), ...] flown track
+    orbit: tuple = None         # (lat, lon, radius_km) of the area
 
 
 def _clamp(v: float, lo: float, hi: float, name: str, log: List[str]) -> float:
@@ -134,6 +136,27 @@ def build(takeoff, landing, area_centre, area_radius_km=40.0,
 
     return MissionPlan(prof, phases, t / 3600.0, out_km + back_km,
                        loiter_s / 3600.0, log)
+
+
+def route_points(takeoff, landing, area_centre, area_radius_km=40.0,
+                 n_orbit=24) -> list:
+    """The track the aircraft actually flies, as (lat, lon) pairs.
+
+    Takeoff -> area entry -> n_orbit points round the surveillance
+    circle -> landing. Flat-earth offsets; fine at these distances,
+    wrong near the poles.
+    """
+    import math
+    lat0 = float(area_centre[0])
+    dlat = area_radius_km / 111.32
+    dlon = area_radius_km / (111.32 * max(0.2, math.cos(math.radians(lat0))))
+    ring = []
+    for k in range(n_orbit):
+        a = 2.0 * math.pi * k / n_orbit
+        ring.append((lat0 + dlat * math.cos(a),
+                     float(area_centre[1]) + dlon * math.sin(a)))
+    return ([(float(takeoff[0]), float(takeoff[1]))] + ring
+            + [ring[0], (float(landing[0]), float(landing[1]))])
 
 
 if __name__ == "__main__":

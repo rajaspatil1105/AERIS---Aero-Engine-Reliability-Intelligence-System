@@ -114,7 +114,10 @@ def apply_to_plan(plan, waypoints: List[Tuple[float, float]],
     src_seen: set = set()
     n = len(plan.profile)
     for i, sp in enumerate(plan.profile):
-        frac = i / max(1, n - 1)
+        # position by TIME along the sortie, not by setpoint index:
+        # the loiter setpoints cluster and index fraction lies.
+        _end = float(plan.profile[-1].t_s) or 1.0
+        frac = min(1.0, max(0.0, float(sp.t_s) / _end))
         wi = min(len(waypoints) - 1, int(frac * (len(waypoints) - 1) + 0.5))
         lat, lon = waypoints[wi]
         t, src = sample(lat, lon, date, sp.altitude_ft, hour)
