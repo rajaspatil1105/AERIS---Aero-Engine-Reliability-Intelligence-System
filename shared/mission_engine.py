@@ -46,6 +46,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 import shared.engine_mvem as mvem
 from shared.throttle_dynamics import TAU_S, _lag
 from node1_ingestion.simulator_bridge import Setpoint
+from shared.atmosphere import isa_temperature_c
 
 # Trained-envelope edges, read off models/training_envelope.json. Frames
 # outside these are emitted with scoreable=False; the twin extrapolates there
@@ -507,7 +508,8 @@ def run_mission(profile: Sequence[Setpoint],
                 a = _interp(pts, tt)
                 b = _interp(pts, min(t_end, tt + coarse_dt))
                 if (abs(b[0] - a[0]) < 1e-9 and abs(b[1] - a[1]) < 1e-6
-                        and abs(b[2] - a[2]) < 1e-6):
+                        and (a[2] is b[2] if (a[2] is None or b[2] is None)
+                 else abs(b[2] - a[2]) < 1e-6)):
                     step = coarse_dt
             for m in _marks:
                 if tt < m < tt + step:
@@ -517,6 +519,11 @@ def run_mission(profile: Sequence[Setpoint],
 
     for i, (t, dt_s) in enumerate(_grid()):
         thr, alt, oat = _interp(pts, t)
+        # Setpoint.oat_c=None documents 'ISA at this altitude'.
+        # Resolve it here so the envelope test and the physics
+        # both see the same number instead of a None.
+        if oat is None:
+            oat = isa_temperature_c(alt * 0.3048)
         dthr = (thr - prev_thr) / dt_s
         prev_thr = thr
 
