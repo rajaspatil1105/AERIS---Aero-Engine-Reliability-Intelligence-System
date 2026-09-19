@@ -26,6 +26,21 @@ THR_TAKEOFF, THR_CLIMB, THR_TRANSIT, THR_LOITER, THR_DESCENT = (
     95.0, 90.0, 78.0, 62.0, 35.0)
 ALT_GROUND_FT, ALT_TRANSIT_FT, ALT_LOITER_FT = 500.0, 18000.0, 12000.0
 
+# Taskings differ in how hard the engine works. High surveillance loiters
+# cold and lean and barely wears anything; low patrol sits in warm air at
+# higher power, which is where season starts to matter.
+TASKINGS = {
+    "high_surveillance": {"transit_ft": 18000.0, "loiter_ft": 12000.0,
+                          "loiter_thr": 62.0,
+                          "note": "high-altitude ISR, gentle on the engine"},
+    "low_patrol": {"transit_ft": 9000.0, "loiter_ft": 3000.0,
+                   "loiter_thr": 75.0,
+                   "note": "border patrol / convoy escort, warm and working"},
+    "contested": {"transit_ft": 6000.0, "loiter_ft": 1500.0,
+                  "loiter_thr": 85.0,
+                  "note": "low and fast, hardest duty the envelope allows"},
+}
+
 
 def great_circle_km(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
@@ -52,15 +67,24 @@ def _clamp(v: float, lo: float, hi: float, name: str, log: List[str]) -> float:
 
 
 def build(takeoff, landing, area_centre, area_radius_km=40.0,
-          target_h=30.0, thr_loiter=THR_LOITER) -> MissionPlan:
+          target_h=30.0, thr_loiter=None,
+          tasking="high_surveillance") -> MissionPlan:
     """takeoff/landing/area_centre are (lat, lon)."""
     log: List[str] = []
+    tk = TASKINGS.get(tasking)
+    if tk is None:
+        raise ValueError("unknown tasking %r; have %s"
+                         % (tasking, ", ".join(sorted(TASKINGS))))
+    log.append("tasking %s -- %s" % (tasking, tk["note"]))
+    transit_ft, loiter_ft = tk["transit_ft"], tk["loiter_ft"]
+    if thr_loiter is None:
+        thr_loiter = tk["loiter_thr"]
     out_km = great_circle_km(takeoff, area_centre)
     back_km = great_circle_km(area_centre, landing)
 
-    climb_s = (ALT_TRANSIT_FT - ALT_GROUND_FT) / CLIMB_FPM * 60.0
-    desc_s = (ALT_TRANSIT_FT - ALT_LOITER_FT) / DESCENT_FPM * 60.0
-    land_s = (ALT_LOITER_FT - ALT_GROUND_FT) / DESCENT_FPM * 60.0
+    climb_s = (transit_ft - ALT_GROUND_FT) / CLIMB_FPM * 60.0
+    desc_s = abs(transit_ft - loiter_ft) / DESCENT_FPM * 60.0
+    land_s = (loiter_ft - ALT_GROUND_FT) / DESCENT_FPM * 60.0
     out_s = out_km / GROUND_SPEED_KMH * 3600.0
     back_s = back_km / GROUND_SPEED_KMH * 3600.0
 
@@ -71,9 +95,9 @@ def build(takeoff, landing, area_centre, area_radius_km=40.0,
                    % target_h)
         loiter_s = 600.0
 
-    a_t = _clamp(ALT_TRANSIT_FT, me.ENV_ALT_MIN_FT, me.ENV_ALT_MAX_FT,
+    a_t = _clamp(transit_ft, me.ENV_ALT_MIN_FT, me.ENV_ALT_MAX_FT,
                  "transit altitude", log)
-    a_l = _clamp(ALT_LOITER_FT, me.ENV_ALT_MIN_FT, me.ENV_ALT_MAX_FT,
+    a_l = _clamp(loiter_ft, me.ENV_ALT_MIN_FT, me.ENV_ALT_MAX_FT,
                  "loiter altitude", log)
     t_l = _clamp(thr_loiter, me.ENV_THR_MIN_PCT, me.ENV_THR_MAX_PCT,
                  "loiter throttle", log)
@@ -113,6 +137,14 @@ def build(takeoff, landing, area_centre, area_radius_km=40.0,
 
 
 if __name__ == "__main__":
+    for _tk in sorted(TASKINGS):
+        _p = build((26.251, 73.049), (26.889, 70.865), (27.200, 70.200),
+                   target_h=30.0, tasking=_tk)
+        _lo = [x for x in _p.phases if x["phase"].startswith("loiter")][0]
+        print("%-18s loiter %5.0f ft at %4.1f%%   %.2f h aloft"
+              % (_tk, _lo["altitude_ft"], _lo["throttle_pct"], _p.total_h))
+    print("")
+
     # Jodhpur -> border patrol box -> Jaisalmer
     plan = build((26.251, 73.049), (26.889, 70.865), (27.200, 70.200),
                  area_radius_km=40.0, target_h=30.0)
