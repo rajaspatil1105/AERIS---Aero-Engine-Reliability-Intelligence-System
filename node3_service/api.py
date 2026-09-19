@@ -531,9 +531,9 @@ def create_app() -> FastAPI:
         if body.engine_serial not in fleet:
             raise HTTPException(422, "unknown engine %s; see GET /sim/fleet"
                                 % body.engine_serial)
-        spec = fleet[body.engine_serial]
-        engine = me.FleetEngine(**{k: v for k, v in spec.items()
-                                   if k in me.FleetEngine.__dataclass_fields__})
+        # Start from the AGED engine, not the factory row: wear accumulated
+        # by previous missions is layered on by mission_engine's overlay.
+        engine = me.engine_now(body.engine_serial)
 
         if body.setpoints:
             profile = [me.Setpoint(**sp.model_dump(exclude_none=True))
@@ -572,6 +572,7 @@ def create_app() -> FastAPI:
 
         def _fly() -> None:
             rec_prev_t = None
+            last_rec = None
             try:
                 for rec in me.run_mission(
                         profile, engine, dt_s=1.0,
@@ -595,6 +596,7 @@ def create_app() -> FastAPI:
                         st.prev_monotonic = now - sim_dt
                         if st.last_throttle_change_monotonic is not None:
                             st.last_throttle_change_monotonic -= sim_dt
+                    last_rec = rec
                     out = _process_and_store(st, rec["frame"])
                     _SIM_RUNS[sid]["frames"] += 1
                     if out.get("status") == "FAULT":
@@ -604,6 +606,21 @@ def create_app() -> FastAPI:
             except Exception as exc:
                 _SIM_RUNS[sid]["error"] = "%s: %s" % (type(exc).__name__, exc)
             finally:
+                # Fold this mission's damage into the permanent record.
+                # Runs on cancel too: the abuse really happened, so the
+                # engine ages by however long it actually flew.
+                try:
+                    if body.stress_enabled and last_rec is not None:
+                        sd = last_rec["stress"]
+                        stt = me.StressState(
+                            thermal=sd["thermal"], oil=sd["oil"],
+                            power=sd["power"], cycles=sd["cycles"],
+                            triggered=list(sd["triggered"]))
+                        flown_h = last_rec["t_s"] / 3600.0
+                        me.record_wear(engine.serial, stt, flown_h)
+                        _SIM_RUNS[sid]["aged_h"] = round(flown_h, 2)
+                except Exception as exc:
+                    _SIM_RUNS[sid]["wear_error"] = str(exc)
                 _SIM_RUNS[sid]["done"] = True
 
         bg.add_task(_fly)

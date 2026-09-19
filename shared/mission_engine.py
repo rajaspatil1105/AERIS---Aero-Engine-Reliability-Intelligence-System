@@ -37,6 +37,9 @@ from __future__ import annotations
 import pathlib
 
 import math
+import json
+import os
+import dataclasses
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
@@ -140,7 +143,83 @@ def fleet_listing() -> List[Dict[str, Any]]:
              "coolant_pump_health": e.coolant_pump_health,
              "oil_pump_health": e.oil_pump_health,
              "bearing_wear": e.bearing_wear, "note": e.note}
-            for e in FLEET]
+            for e in _fleet_now()]
+
+
+# ==================================================================== #
+# Cumulative wear across missions
+# ==================================================================== #
+#
+# FLEET above is the FACTORY baseline and never changes. Accumulated damage
+# lives in a JSON overlay so an engine that flew a punishing mission is still
+# worn after a restart. Engines age across missions, not within one flight.
+
+_WEAR_PATH = pathlib.Path(
+    os.environ.get("AERIS_WEAR",
+                   pathlib.Path.home() / ".aeris" / "fleet_wear.json"))
+
+
+def _wear_load() -> Dict[str, Dict[str, float]]:
+    try:
+        return json.loads(_WEAR_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _wear_save(d: Dict[str, Dict[str, float]]) -> None:
+    _WEAR_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _WEAR_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, indent=1, sort_keys=True), encoding="utf-8")
+    tmp.replace(_WEAR_PATH)
+
+
+def _fleet_now() -> List[FleetEngine]:
+    """Factory fleet with accumulated wear applied."""
+    acc = _wear_load()
+    out = []
+    for e in FLEET:
+        a = acc.get(e.serial)
+        if not a:
+            out.append(e)
+            continue
+        out.append(dataclasses.replace(
+            e,
+            hours=e.hours + a.get("hours", 0.0),
+            coolant_pump_health=max(0.05, e.coolant_pump_health - a.get("coolant", 0.0)),
+            oil_pump_health=max(0.05, e.oil_pump_health - a.get("oil", 0.0)),
+            bearing_wear=min(1.0, e.bearing_wear + a.get("bearing", 0.0)),
+            note=e.note + " +%.0f h flown" % a.get("hours", 0.0)))
+    return out
+
+
+def engine_now(serial: str) -> FleetEngine:
+    for e in _fleet_now():
+        if e.serial == serial:
+            return e
+    raise MissionEngineError("unknown engine %s" % serial)
+
+
+def record_wear(serial: str, st: "StressState", flown_h: float) -> Dict[str, float]:
+    """Fold one mission's damage into the engine's permanent record."""
+    acc = _wear_load()
+    a = acc.setdefault(serial, {"hours": 0.0, "coolant": 0.0,
+                                "oil": 0.0, "bearing": 0.0})
+    a["hours"] += flown_h
+    a["coolant"] += 0.30 * min(1.0, st.thermal)
+    a["oil"] += 0.25 * min(1.0, st.oil)
+    a["bearing"] += 0.35 * min(1.0, st.power)
+    _wear_save(acc)
+    return a
+
+
+def reset_wear(serial: Optional[str] = None) -> None:
+    """Back to factory. Whole fleet if serial is None."""
+    if serial is None:
+        _wear_save({})
+        return
+    acc = _wear_load()
+    acc.pop(serial, None)
+    _wear_save(acc)
 
 
 # ==================================================================== #
@@ -162,9 +241,14 @@ OIL_KNEE_C = 94.0  # was 102.0; cruise oil is regulated at 90 C; hot WOT reaches
 # normal cruise, preserving the "damage only above a knee" property.
 # Revisit if the thermal model is recalibrated to realistic hot-day temps.
 POWER_KNEE_KW = 95.0
-THERMAL_FULL_S = 36000.0  # was 120000.0; 40 h hot WOT -> ~0.79 cooling damage
-OIL_FULL_S = 130000.0  # was 30000.0; 4.8 C over knee for 40 h -> ~0.53 oil damage
-POWER_FULL_S = 270000.0  # was 5400.0, x50 so a 40 h abusive mission degrades, not kills
+THERMAL_FULL_S = 1150000.0  # Rescaled for cumulative wear: one punishing 30 h mission should
+# cost a few percent of health, not saturate the knob. Engines age
+# across missions, not within one flight.
+# still had a 0.35 dead band. With onset at 0.0 that value cooked the
+# engine by 12 h; 80000 saturates at 26.4 h so a 30 h abusive mission
+# is a climb throughout with only a short tail.
+OIL_FULL_S = 430000.0  # see THERMAL_FULL_S note
+POWER_FULL_S = 1180000.0  # see THERMAL_FULL_S note
 CYCLE_FULL_N = 400.0         # throttle excursions >30 %/s to reach 1.0
 CYCLE_RATE_PCT_S = 30.0
 
@@ -213,7 +297,12 @@ DEGRADE = {
 # 1.0; the fault is only named once it is DEGRADE_ANNOUNCE through that
 # walk. Previously nothing moved below 1.0, so a 40 h abusive mission
 # read HEALTHY with 0.79 cooling damage on the books.
-DEGRADE_ONSET = 0.35
+DEGRADE_ONSET = 0.0  # was 0.35. A dead band meant the engine was
+# physically identical to a new one until the counter crossed it, so
+# nothing was predictable from sensors -- p_anom sat at 0.000 for 17 h
+# and then the gate tripped 0.6 h after health finally moved. Health
+# now walks with accumulated stress from the first hour; the fault is
+# still only NAMED at DEGRADE_ANNOUNCE, so the gate leads the label.
 DEGRADE_ANNOUNCE = 0.60
 
 
