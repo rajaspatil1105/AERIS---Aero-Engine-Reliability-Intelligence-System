@@ -206,9 +206,13 @@ def record_wear(serial: str, st: "StressState", flown_h: float) -> Dict[str, flo
     a = acc.setdefault(serial, {"hours": 0.0, "coolant": 0.0,
                                 "oil": 0.0, "bearing": 0.0})
     a["hours"] += flown_h
-    a["coolant"] += 0.30 * min(1.0, st.thermal)
-    a["oil"] += 0.25 * min(1.0, st.oil)
-    a["bearing"] += 0.35 * min(1.0, st.power)
+    # No per-call clamp on the counters. A real mission lands well under
+    # 1.0 anyway, and clamping here silently threw away scaled aging:
+    # a 2000 h request added exactly the same wear as a 300 h one.
+    # _fleet_now() still floors health at 0.05 and caps bearing at 1.0.
+    a["coolant"] += 0.30 * max(0.0, st.thermal)
+    a["oil"] += 0.25 * max(0.0, st.oil)
+    a["bearing"] += 0.35 * max(0.0, st.power)
     _wear_save(acc)
     return a
 
