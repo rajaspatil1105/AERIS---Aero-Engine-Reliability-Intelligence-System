@@ -671,12 +671,19 @@ def create_app() -> FastAPI:
                                      (ac_lat, ac_lon), area_radius_km)
         plan.orbit = (ac_lat, ac_lon, area_radius_km)
 
-        wx = {"source": "isa", "notes": ["no date given"]}
+        wx = {"sources": ["isa"], "clamped": [], "date": None,
+              "hour_utc": hour, "note": "no date given, ISA standard day"}
         if date:
             try:
-                wx = mw.apply_to_plan(plan, plan.route, date, hour=hour)
-            except Exception as exc:                      # network, parse, range
-                wx = {"source": "isa", "notes": ["weather unavailable: %s" % exc]}
+                wx = dict(mw.apply_to_plan(plan, plan.route, date, hour=hour))
+            except Exception as exc:                  # network, parse, range
+                wx = {"sources": ["isa"], "clamped": [], "date": date,
+                      "hour_utc": hour,
+                      "note": "weather unavailable (%s), fell back to ISA" % exc}
+        wx.setdefault("note", "")
+        wx["single_hour_caveat"] = (
+            "Every point sampled at %02d:00 UTC. A 30 h sortie crosses a night; "
+            "this one does not cool down." % hour)
 
         return {"route": [[round(a, 5), round(b, 5)] for a, b in plan.route],
                 "orbit": {"lat": ac_lat, "lon": ac_lon,
