@@ -188,7 +188,7 @@ def _fleet_now() -> List[FleetEngine]:
             coolant_pump_health=max(0.05, e.coolant_pump_health - a.get("coolant", 0.0)),
             oil_pump_health=max(0.05, e.oil_pump_health - a.get("oil", 0.0)),
             bearing_wear=min(1.0, e.bearing_wear + a.get("bearing", 0.0)),
-            note=e.note + " +%.0f h flown" % a.get("hours", 0.0)))
+            note="%.0f h flown since factory" % a.get("hours", 0.0)))
     return out
 
 
