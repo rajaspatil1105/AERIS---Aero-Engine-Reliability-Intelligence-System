@@ -45,9 +45,15 @@ async function smStart() {
                altitude_ft:  smVal("sm-alt", 6000),
                oat_c:        smVal("sm-oat", 10) };
   var pk = base.throttle_pct + "% " + base.altitude_ft + "ft";
-  var dur = smVal("sm-dur", 300);
-  var onset = smVal("sm-onset", 0);
-  var clear = smVal("sm-clear", 0);
+  // Duration, onset and clear all read in the selected unit.
+  var uEl = document.getElementById("sm-durunit");
+  var unit = uEl ? (parseFloat(uEl.value) || 1) : 1;
+  var dur = smVal("sm-dur", 300) * unit;
+  // Keep emitted frames near 600 whatever the mission length:
+  // 10 s emit over 30 h would be 10800 scored frames (~1 h of work).
+  var emitC = Math.min(600, Math.max(10, dur / 600));
+  var onset = smVal("sm-onset", 0) * unit;
+  var clear = smVal("sm-clear", 0) * unit;
 
   var body = {
     engine_serial: document.getElementById("sm-eng").value || "RTX915-0003",
@@ -55,9 +61,12 @@ async function smStart() {
     altitude_ft: base.altitude_ft,
     oat_c: base.oat_c,
     duration_s: dur,
-    emit_cruise_s: 10.0,
+    emit_cruise_s: emitC,
     emit_event_s: 1.0,
-    speed: smVal("sm-rate", 1)
+    // Long missions ignore playback pacing. The server sleeps
+    // min(sim_dt,60)/speed per frame, so 1x over 30 h with a 180 s
+    // emit rate would sleep 60 s x 600 frames = 10 hours.
+    speed: (dur > 3600 ? 0 : smVal("sm-rate", 1))
   };
   if (fault) {
     body.fault = fault;
@@ -80,6 +89,9 @@ async function smStart() {
     SM.ses = d.session_id;
   } catch (e) { smLog("run failed: " + e.message); return; }
 
+  if (dur > 3600)
+    smLog("mission is " + (dur/3600).toFixed(1) + " h -- playback "
+          + "pacing disabled, running as fast as possible");
   smLog("running server-side, session " + SM.ses + " &middot; " + pk +
         (fault ? " &middot; " + fault + " @ " + onset + "s" : " &middot; healthy"));
   SM.poll = setInterval(smTick, 1000);
@@ -148,6 +160,17 @@ async function smEngines() {
   }
 }
 
+function smUnits() {
+  var el = document.getElementById("sm-durunit");
+  var u = el ? el.options[el.selectedIndex].text : "sec";
+  var m = {"sm-durlbl":"mission length (", "sm-onsetlbl":"onset (",
+           "sm-clearlbl":"clears after ("};
+  for (var k in m) {
+    var t = document.getElementById(k);
+    if (t) t.textContent = m[k] + u + ")";
+  }
+}
+
 (function smWire() {
   document.getElementById("sm-start").onclick = smStart;
   document.getElementById("sm-stop").onclick = function () { smStop(); };
@@ -163,6 +186,9 @@ async function smEngines() {
     document.getElementById("sm-oat").value = p.oat;
     smShow();
   };
+  var du = document.getElementById("sm-durunit");
+  if (du) du.onchange = smUnits;
+  smUnits();
   smShow();
   smEngines();
 })();

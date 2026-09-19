@@ -150,8 +150,8 @@
         <option value="cruise">high cruise 80% 6000 ft 10 C</option>
         <option value="econ">econ cruise 70% 8000 ft 6 C</option>
       </select></div>
-      <div class="kv"><span>mission length (s)</span>
-        <input id="sm-dur" type="number" value="300" min="30" step="10"></div>
+      <div class="kv"><span id="sm-durlbl">mission length (s)</span>
+        <input id="sm-dur" type="number" value="300" min="1" step="10"><select id="sm-durunit"><option value="1" selected>sec</option><option value="60">min</option><option value="3600">hours</option></select></div>
       <div class="kv"><span>playback</span><select id="sm-rate">
         <option value="1">1x realtime</option><option value="2">2x</option>
         <option value="5">5x</option><option value="0">as fast as possible</option>
@@ -170,9 +170,9 @@
         <option value="moderate">moderate</option>
         <option value="severe" selected>severe</option>
       </select></div>
-      <div class="kv"><span>onset (s)</span>
+      <div class="kv"><span id="sm-onsetlbl">onset (s)</span>
         <input id="sm-onset" type="number" value="60" min="0" step="10"></div>
-      <div class="kv"><span>clears after (s)</span>
+      <div class="kv"><span id="sm-clearlbl">clears after (s)</span>
         <input id="sm-clear" type="number" value="180" min="0" step="10"></div>
       <div class="dim" id="sm-warn" style="margin-top:6px"></div>
     </div>
