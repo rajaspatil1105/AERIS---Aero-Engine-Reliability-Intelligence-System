@@ -646,7 +646,8 @@ def create_app() -> FastAPI:
                          ld_lat: float, ld_lon: float,
                          ac_lat: float, ac_lon: float,
                          area_radius_km: float = 40.0,
-                         target_h: float = 30.0,
+                         target_h: float = 0.0,   # 0 -> from the airframe
+                         airframe: str = "heron_mk2",
                          tasking: str = "high_surveillance",
                          date: str = "",
                          hour: int = 12) -> dict[str, Any]:
@@ -661,8 +662,11 @@ def create_app() -> FastAPI:
         import shared.mission_weather as mw
 
         try:
+            t_h, endur = mp.auto_target_h(
+                (tk_lat, tk_lon), (ld_lat, ld_lon),
+                (ac_lat, ac_lon), airframe, target_h)
             plan = mp.build((tk_lat, tk_lon), (ld_lat, ld_lon), (ac_lat, ac_lon),
-                            area_radius_km=area_radius_km, target_h=target_h,
+                            area_radius_km=area_radius_km, target_h=t_h,
                             tasking=tasking)
         except ValueError as exc:
             raise HTTPException(422, str(exc))
@@ -682,7 +686,7 @@ def create_app() -> FastAPI:
                       "note": "weather unavailable (%s), fell back to ISA" % exc}
         wx.setdefault("note", "")
         wx["single_hour_caveat"] = (
-            "Every point sampled at %02d:00 UTC. A 30 h sortie crosses a night; "
+            "Every point sampled at %02d:00 UTC. A sortie this long crosses a night; "
             "this one does not cool down." % hour)
 
         return {"route": [[round(a, 5), round(b, 5)] for a, b in plan.route],
@@ -694,6 +698,7 @@ def create_app() -> FastAPI:
                 "loiter_h": round(plan.loiter_h, 3),
                 "tasking": tasking,
                 "date": date,
+                "endurance": endur,
                 "weather": wx,
                 "clamped": plan.clamped,
                 "setpoints": [{"t_s": s.t_s, "throttle_pct": s.throttle_pct,

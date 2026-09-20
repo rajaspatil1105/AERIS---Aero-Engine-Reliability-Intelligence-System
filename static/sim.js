@@ -149,7 +149,8 @@ async function smEngines() {
     list.forEach(function (e) {
       var o = document.createElement("option");
       o.value = e.serial;
-      o.textContent = e.serial + " -- " + e.hours + " h, " + e.note;
+      o.textContent = e.serial + " -- " + Number(e.hours).toFixed(0) +
+        " h" + (e.note ? ", " + e.note : "");
       if (e.serial === "RTX915-0003") o.selected = true;
       sel.appendChild(o);
     });
@@ -240,7 +241,7 @@ function smBeep(times) {
     condition: ["CONDITION SIMULATOR",
       "no fault is injected; wear and failures emerge from the conditions"],
     mission: ["MISSION SIMULATOR",
-      "full surveillance sortie -- not built yet"]
+      "route, weather and a 20-30 h sortie flown from the map"]
   };
   function el(id) { return document.getElementById(id); }
 
@@ -267,19 +268,24 @@ function smBeep(times) {
     el("sm-workspace").style.display = "";
     el("sm-mode-title").textContent = m[0];
     el("sm-mode-sub").textContent = m[1];
-    var fault = el("sm-card-fault"), age = el("sm-card-age");
+    var fault = el("sm-card-fault"), age = el("sm-card-age"),
+        mapc = el("sm-card-map");
+    if (mapc) mapc.style.display = (mode === "mission") ? "" : "none";
+    if (window.smOpRows) window.smOpRows(mode === "mission");
     if (mode === "condition") {
       if (fault) fault.style.display = "none";
       if (age) age.style.display = "";
       var f = el("sm-fault");            // sim.js still reads this
       if (f) f.value = "none";
       showFleetAge();
+    } else if (mode === "mission") {
+      if (fault) fault.style.display = "none";
+      if (age) age.style.display = "none";
     } else {
       if (fault) fault.style.display = "";
       if (age) age.style.display = "none";
     }
-    if (mode === "mission" && typeof smLog === "function")
-      smLog("mission simulator is not built yet -- running as a plain sortie");
+    if (mode === "mission" && window.smMapInit) window.smMapInit();
   }
 
   document.addEventListener("click", function (ev) {
@@ -294,3 +300,246 @@ function smBeep(times) {
     if (ev.target.id === "sm-eng") showFleetAge();
   });
 })();
+
+
+// ---- pre-age controls on the condition simulator ------------------------
+(function () {
+  function el(id) { return document.getElementById(id); }
+  function log(msg) { var o = el("sm-age-log"); if (o) o.textContent = msg; }
+  function refresh() {
+    document.getElementById("sm-eng")
+      .dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  document.addEventListener("click", function (ev) {
+    var serial = (el("sm-eng") || {}).value;
+    if (!serial) return;
+
+    if (ev.target.id === "sm-age-go") {
+      var h = parseFloat((el("sm-agehrs") || {}).value || "0");
+      if (!(h > 0)) { log("enter a positive number of hours"); return; }
+      log("aging " + serial + " by " + h + " h ...");
+      fetch("/sim/age?serial=" + encodeURIComponent(serial) + "&hours=" + h,
+            { method: "POST" })
+        .then(function (r) { return r.json().then(function (j) {
+          return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok) { log("refused: " + (res.j.detail || "error")); return; }
+          var b = res.j.before, a = res.j.after;
+          log("+" + h + " h  oil " + b.oil_pump_health.toFixed(4) + " -> " +
+              a.oil_pump_health.toFixed(4) + "   bearing " +
+              b.bearing_wear.toFixed(4) + " -> " + a.bearing_wear.toFixed(4));
+          refresh();
+        })
+        .catch(function (e) { log("failed: " + e); });
+    }
+
+    if (ev.target.id === "sm-age-reset") {
+      log("restoring " + serial + " to factory ...");
+      fetch("/sim/age/reset?serial=" + encodeURIComponent(serial),
+            { method: "POST" })
+        .then(function (r) { return r.json(); })
+        .then(function () { log("back to factory"); refresh(); })
+        .catch(function (e) { log("failed: " + e); });
+    }
+  });
+})();
+
+
+/* ---- mission map, box 3 ------------------------------------------- */
+(function () {
+  var map = null, layer = null, pts = [], plan = null;
+  function el(id) { return document.getElementById(id); }
+
+  function vendorPath() {
+    var s = document.getElementsByTagName("script");
+    for (var i = 0; i < s.length; i++) {
+      var u = s[i].src || "";
+      if (u.indexOf("leaflet.js") >= 0) return u.replace(/leaflet\.js.*$/, "");
+    }
+    return "vendor/";
+  }
+
+  var IDS = [["sm-tk-lat", "sm-tk-lon"], ["sm-ld-lat", "sm-ld-lon"],
+             ["sm-ac-lat", "sm-ac-lon"]];
+
+  function readout() {                      // pts -> boxes
+    for (var i = 0; i < 3; i++) {
+      var la = el(IDS[i][0]), lo = el(IDS[i][1]);
+      if (!la || !lo) continue;
+      la.value = pts[i] ? pts[i][0].toFixed(4) : "";
+      lo.value = pts[i] ? pts[i][1].toFixed(4) : "";
+    }
+  }
+
+  function fromBoxes() {                    // boxes -> pts
+    var got = [];
+    for (var i = 0; i < 3; i++) {
+      var la = el(IDS[i][0]), lo = el(IDS[i][1]);
+      if (!la || !lo) return false;
+      var a = parseFloat(la.value), b = parseFloat(lo.value);
+      if (isNaN(a) || isNaN(b)) break;
+      if (a < -90 || a > 90 || b < -180 || b > 180) {
+        el("sm-plan-out").textContent =
+          "coordinates out of range: lat -90..90, lon -180..180";
+        return false;
+      }
+      got.push([a, b]);
+    }
+    pts = got;
+    return true;
+  }
+
+  function redraw() {
+    if (!map) { readout(); return; }
+    layer.clearLayers();
+    for (var i = 0; i < pts.length; i++) L.marker(pts[i]).addTo(layer);
+    if (plan) {
+      L.polyline(plan.route, {color: "#4af", weight: 2}).addTo(layer);
+      L.circle([plan.orbit.lat, plan.orbit.lon],
+        {radius: plan.orbit.radius_km * 1000, color: "#fa4",
+         weight: 1, fill: false}).addTo(layer);
+    }
+    readout();
+  }
+
+  window.smMapInit = function () {
+    var d = el("sm-date");
+    if (d && !d.max) {
+      var mx = new Date(Date.now() + 13 * 864e5);
+      d.max = mx.toISOString().slice(0, 10);
+    }
+    if (!window.L) {
+      el("sm-map").innerHTML = "<div class='dim' style='padding:8px'>" +
+        "leaflet did not load -- coordinates below still work</div>";
+      readout(); return;
+    }
+    if (map) { setTimeout(function () { map.invalidateSize(); }, 60); return; }
+    L.Icon.Default.imagePath = vendorPath();
+    map = L.map("sm-map").setView([26.9, 72.0], 7);
+    // Imagery is the default on purpose: boundary depiction is disputed
+    // between states and no tile source matches every official view.
+    // Terrain carries no such claim, and a sortie planner needs terrain.
+    var imagery = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/" +
+      "World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {maxZoom: 17, attribution: "Esri, Maxar, Earthstar Geographics"});
+    var streets = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {maxZoom: 17, attribution: "OpenStreetMap"});
+    var E = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+    // Roads, rail and place names with NO political boundaries on them,
+    // so the only border drawn anywhere is the one we ship ourselves.
+    var roads = L.tileLayer(E + "Reference/World_Transportation/MapServer/" +
+      "tile/{z}/{y}/{x}", {maxZoom: 17, pane: "shadowPane"});
+    var terrain = L.tileLayer(E + "World_Terrain_Base/MapServer/tile/{z}/{y}/{x}",
+      {maxZoom: 13, attribution: "Esri"});
+    streets.addTo(map);
+    roads.addTo(map);
+    // KNOWN ISSUE: the OSM base draws Kashmir per its own
+    // convention, not the Survey of India depiction this
+    // project needs. The boundary overlay below is correct
+    // and can be switched on; deferred, not forgotten.
+    var bnd = L.layerGroup();
+    fetch("vendor/india-boundary.geojson")
+      .then(function (r) { return r.json(); })
+      .then(function (gj) {
+        L.geoJSON(gj, {style: {color: "#ff9a3c", weight: 1.6,
+                               opacity: 0.95, fill: false},
+                       interactive: false}).addTo(bnd);
+      })
+      .catch(function () {
+        var o = document.getElementById("sm-plan-out");
+        if (o) o.textContent = "india boundary layer failed to load";
+      });
+    L.control.layers({"streets (OSM)": streets, "satellite": imagery,
+                  "terrain": terrain},
+                     {"roads and names": roads, "india boundary": bnd},
+                     {position: "topright"}).addTo(map);
+    layer = L.layerGroup().addTo(map);
+    map.on("click", function (e) {
+      if (pts.length >= 3) { pts = []; plan = null; }
+      pts.push([e.latlng.lat, e.latlng.lng]);
+      redraw();
+    });
+    setTimeout(function () { map.invalidateSize(); }, 60);
+    readout();
+  };
+
+  function planIt() {
+    var out = el("sm-plan-out");
+    if (pts.length < 3) {
+      out.textContent = "click three points first: takeoff, landing, area centre";
+      return;
+    }
+    var q = "tk_lat=" + pts[0][0] + "&tk_lon=" + pts[0][1] +
+            "&ld_lat=" + pts[1][0] + "&ld_lon=" + pts[1][1] +
+            "&ac_lat=" + pts[2][0] + "&ac_lon=" + pts[2][1] +
+            "&area_radius_km=" + (el("sm-radius").value || 40) +
+            "&target_h=0" +
+            "&tasking=" + el("sm-tasking").value;
+    var dv = el("sm-date").value;
+    if (dv) q += "&date=" + dv;
+    out.textContent = "planning -- a first weather fetch can take a few seconds";
+    fetch("/sim/mission/plan?" + q, {method: "POST"})
+      .then(function (r) {
+        return r.json().then(function (j) { return {s: r.status, j: j}; }); })
+      .then(function (o) {
+        if (o.s !== 200) {
+          out.textContent = "plan refused (" + o.s + "): " +
+            (o.j.detail || JSON.stringify(o.j)); return;
+        }
+        plan = o.j; window.smLastPlan = plan; redraw();
+        if (map) map.fitBounds(L.polyline(plan.route).getBounds().pad(0.2));
+        var w = plan.weather || {}, h = "";
+        h += "<div><b>" + plan.total_h + " h aloft &middot; transit " +
+             plan.transit_km + " km &middot; loiter " + plan.loiter_h +
+             " h &middot; " + plan.tasking + "</b></div>";
+        var en = plan.endurance || {};
+        if (en.name) h += "<div>" + en.name + " &middot; " + en.hours +
+          " h (" + en.source + ") &middot; transit " + en.transit_h +
+          " h at " + en.transit_kt + " kt</div>";
+        h += "<div>weather " + (w.sources || ["?"]).join(", ") +
+             (plan.date ? " for " + plan.date : " (no date, ISA)") + "</div>";
+        for (var i = 0; i < (plan.phases || []).length; i++) {
+          var p = plan.phases[i], bits = [];
+          for (var k in p) if (p.hasOwnProperty(k)) bits.push(k + " " + p[k]);
+          h += "<div>" + bits.join("  &middot;  ") + "</div>";
+        }
+        if ((plan.clamped || []).length)
+          h += "<div>planner notes: " + plan.clamped.join("; ") + "</div>";
+        if (w.single_hour_caveat) h += "<div>" + w.single_hour_caveat + "</div>";
+        h += "<div>" + (plan.caveat || "") + "</div>";
+        out.innerHTML = h;
+      })
+      .catch(function (e) { out.textContent = "plan failed: " + e; });
+  }
+
+  document.addEventListener("change", function (ev) {
+    var id = ev.target.id || "";
+    if (id.indexOf("sm-tk-") === 0 || id.indexOf("sm-ld-") === 0 ||
+        id.indexOf("sm-ac-") === 0) { if (fromBoxes()) { plan = null; redraw(); } }
+  });
+
+  document.addEventListener("click", function (ev) {
+    if (ev.target.id === "sm-plan") { fromBoxes(); planIt(); }
+    if (ev.target.id === "sm-map-clear") {
+      pts = []; plan = null; redraw();
+      el("sm-plan-out").textContent = "cleared";
+    }
+  });
+})();
+
+
+/* hide the operating-point rows that mission mode does not use */
+window.smOpRows = function (hide) {
+  var card = document.getElementById("sm-eng");
+  card = card && card.closest ? card.closest(".rep-card") : null;
+  if (!card) return;
+  ["sm-thr", "sm-alt", "sm-oat", "sm-preset", "sm-dur", "sm-rate"]
+    .forEach(function (id) {
+      var node = document.getElementById(id);
+      while (node && node.parentNode !== card) node = node.parentNode;
+      if (node) node.style.display = hide ? "none" : "";
+    });
+};

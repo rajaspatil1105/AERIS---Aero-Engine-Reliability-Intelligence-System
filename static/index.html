@@ -4,7 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AERIS TACTICAL</title>
 <link rel="stylesheet" href="aeris.css?v=9">
-<link rel="stylesheet" href="aeris2.css?v=9">
+<link rel="stylesheet" href="aeris2.css?v=10">
+  <link rel="stylesheet" href="vendor/leaflet.css">
 </head><body>
 
 <div id="untrusted">MODELS UNVALIDATED &mdash; gate F1 0.907 / ROC-AUC 0.985 on
@@ -181,6 +182,38 @@
         <option value="5">5x</option><option value="0">as fast as possible</option>
       </select></div>
     </div>
+    <div class="rep-card" id="sm-card-map" style="display:none">
+      <h3>MISSION MAP</h3>
+      <div class="dim">click sets TAKEOFF, then LANDING, then the
+        SURVEILLANCE CENTRE. a fourth click starts over.</div>
+      <div id="sm-map" style="min-height:420px;margin:6px 0;background:#111"></div>
+      <div id="sm-map-fallback" class="dim"
+           style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+                  margin:6px 0;font-size:11px">
+        <span>takeoff <input id="sm-tk-lat" placeholder="lat" style="width:74px">
+          <input id="sm-tk-lon" placeholder="lon" style="width:74px"></span>
+        <span>landing <input id="sm-ld-lat" placeholder="lat" style="width:74px">
+          <input id="sm-ld-lon" placeholder="lon" style="width:74px"></span>
+        <span>area <input id="sm-ac-lat" placeholder="lat" style="width:74px">
+          <input id="sm-ac-lon" placeholder="lon" style="width:74px"></span>
+        <span class="dim">click the map or type</span>
+      </div>
+      <div style="display:flex;flex-wrap:nowrap;align-items:center;gap:12px;margin:6px 0;white-space:nowrap">
+        <label>tasking <select id="sm-tasking">
+          <option value="high_surveillance">high surveillance</option>
+          <option value="low_patrol">low patrol</option>
+          <option value="contested">contested</option></select></label>
+        <label>date <input type="date" id="sm-date" style="width:118px"></label>
+        <label>radius <input type="number" id="sm-radius" value="40" min="5"
+               max="200" step="5" style="width:54px"> km</label>
+        <span class="dim">duration: auto (Heron Mk II)</span>
+        <button id="sm-plan">PLAN</button>
+        <button id="sm-map-clear">CLEAR</button>
+        <select id="sm-map-speed" style="width:104px"><option value="0" selected>flat out</option><option value="1000">1000x</option><option value="500">500x</option><option value="100">100x</option><option value="10">10x</option><option value="5">5x</option><option value="2">2x</option><option value="1">real time</option></select>
+<button id="sm-map-fly" disabled title="no run endpoint yet">FLY IT</button>
+      </div>
+      <div id="sm-plan-out" class="dim">no plan yet</div>
+    </div>
     <div class="rep-card" id="sm-card-fault"><h3>FAULT INJECTION</h3>
       <div class="kv"><span>fault</span><select id="sm-fault">
         <option value="none">none (healthy mission)</option>
@@ -203,6 +236,12 @@
     <div class="rep-card" id="sm-card-age" style="display:none">
       <h3>ENGINE CONDITION</h3>
       <div class="dim" id="sm-age-now">select an engine</div>
+      <div class="kv" style="margin-top:6px"><span>put hours on it</span>
+        <input id="sm-agehrs" type="number" value="300" min="1" max="2000" step="50"></div>
+      <div class="rp-actions">
+        <button id="sm-age-go" class="btn">AGE</button>
+        <button id="sm-age-reset" class="btn">FACTORY</button></div>
+      <div class="dim" id="sm-age-log" style="margin-top:6px"></div>
       <div class="dim" style="margin-top:6px">Wear carries over between runs.
       A single hard 30 h sortie costs roughly 3% of oil pump health, so a
       fault emerges over dozens of missions, not inside one flight.</div>
@@ -245,5 +284,7 @@
 <script src="schematic.js?v=9"></script>
 <script src="aeris.js?v=9"></script>
 <script src="replay.js?v=9"></script>
-<script src="sim.js?v=9"></script>
+<script src="vendor/leaflet.js"></script>
+  <script src="sim_fly.js?v=2"></script>
+<script src="sim.js?v=22"></script>
 </body></html>

@@ -109,3 +109,7 @@ body.view-sim #v-sim{display:block}
 .kv{display:flex;justify-content:space-between;gap:10px;font-size:11px;padding:2px 0;
   border-bottom:1px solid rgba(255,255,255,.04)}
 .kv i{color:var(--dim);font-style:normal}
+/* the mission map owns the whole workspace row: the plan controls
+   do not fit in a 230px column */
+#sm-card-map{grid-column:1/-1}
+#sm-map{height:420px}

@@ -167,6 +167,18 @@ def _wear_load() -> Dict[str, Dict[str, float]]:
         return {}
 
 
+def _flown_note(factory_note: str, flown_h: float) -> str:
+    """Keep the factory description and say what has been flown on top.
+
+    %.0f hid anything under half an hour, so a five minute sortie
+    reported "0 h flown since factory" on an engine that had moved.
+    """
+    if flown_h <= 0.0:
+        return factory_note
+    n = ("%.2f h" % flown_h) if flown_h < 1.0 else ("%.0f h" % flown_h)
+    return "%s, +%s flown" % (factory_note, n)
+
+
 def _wear_save(d: Dict[str, Dict[str, float]]) -> None:
     _WEAR_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = _WEAR_PATH.with_suffix(".tmp")
@@ -189,7 +201,7 @@ def _fleet_now() -> List[FleetEngine]:
             coolant_pump_health=max(0.05, e.coolant_pump_health - a.get("coolant", 0.0)),
             oil_pump_health=max(0.05, e.oil_pump_health - a.get("oil", 0.0)),
             bearing_wear=min(1.0, e.bearing_wear + a.get("bearing", 0.0)),
-            note="%.0f h flown since factory" % a.get("hours", 0.0)))
+            note=_flown_note(e.note, a.get("hours", 0.0))))
     return out
 
 
