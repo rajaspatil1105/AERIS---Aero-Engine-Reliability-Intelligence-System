@@ -74,3 +74,6 @@ resid_sample.parquet
 *.presliders
 *.scaled
 
+
+fix_*.py
+add_*.py
