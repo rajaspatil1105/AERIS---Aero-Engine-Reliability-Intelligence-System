@@ -10,14 +10,22 @@ sensor noise, so this adds:
     value, never replacing it
   * projection to zero, only when the trend is genuinely negative
 
-TRUST: rul_trusted is hard-wired False. The artifact scores R2 = -0.103,
-i.e. worse than predicting the training mean, so MAE 107 is not a
-meaningful accuracy figure. Smoothing makes the number STABLE, not
-CORRECT. A steady line here is not evidence of a healthy engine.
+TRUST: rul_trusted is conditional, not hard-wired. The artifact is a
+GradientBoostingRegressor retrained on 7232 residual vectors from 15
+engines flown to oil-pump end of life; it scores R2 +0.842, MAE 93 h
+over a 1272 h label spread on four wholly held-out engines. Per
+operating point it holds at R2 0.78-0.83, so it reads wear rather
+than throttle. One caveat stated plainly: delta_oil_pressure_bar
+carries 0.938 of the feature importance, so this is in practice an
+oil-pressure-residual-to-hours converter, not a multi-channel health
+model. Labels come from the same wear model that generated the
+histories, so R2 proves pipeline consistency, not real-engine skill.
+Tree models cannot extrapolate: at true zero remaining life it reads
+about +30 h, erring late. Do not use it as a sole airworthiness gate.
 
-UNITS ARE UNKNOWN. No artifact records them. Rendering this as "hours"
-would be an invention. Displayed unitless until the training script
-confirms.
+UNITS ARE HOURS. The labels come from gen_rul_histories.py, which counts
+remaining flight hours to an oil-pump health of 0.70, so the figure is
+dimensionally real. It is a modelled life, not a certified one.
 """
 from __future__ import annotations
 
@@ -35,7 +43,7 @@ from node2_twin_core.residual_calc import (
     ResidualCalculator,
 )
 
-RUL_UNITS = "unknown"
+RUL_UNITS = "hours"
 DEFAULT_WINDOW = 50          # frames retained for trend fitting
 DEFAULT_ALPHA = 0.10         # EWMA weight on the newest sample
 MIN_SAMPLES_FOR_TREND = 10
@@ -60,7 +68,7 @@ class RulEstimate:
     minutes_to_zero: float | None
     samples: int
     warmed_up: bool
-    trusted: bool                    # always False for this artifact
+    trusted: bool                    # True only when warmed up and the frame is vouched for
     units: str
 
     def describe(self) -> str:
@@ -68,7 +76,7 @@ class RulEstimate:
              else (f"{self.trend_per_minute:+.3f}/min"
                    if self.trend_significant else "not significant"))
         return (f"RUL {self.smoothed:.1f} ({self.units}), raw {self.raw:.1f}, "
-                f"trend {t}, UNTRUSTED")
+                f"trend {t}, {'TRUSTED' if self.trusted else 'UNTRUSTED'}")
 
 class RulEngine:
     def __init__(self, calc=None, models_dir=None, window=DEFAULT_WINDOW,
@@ -102,7 +110,12 @@ class RulEngine:
         self._ewma: float | None = None
         self._envelope: float | None = None
 
-    def update_vector(self, vector) -> RulEstimate:
+    def update_vector(self, vector,
+                      meaningful: bool = True) -> RulEstimate:
+        # meaningful=False marks a frame the residual layer could not
+        # vouch for (degraded mode, or outside the baseline envelope
+        # when the caller passed require_envelope=False). The estimate
+        # is still returned; only the trust flag drops.
         v = np.asarray(vector, dtype=float).reshape(1, -1)
         if v.shape[1] != len(FEATURE_ORDER):
             raise RulEngineError(
@@ -159,12 +172,14 @@ class RulEngine:
             minutes_to_zero=m2z,
             samples=n,
             warmed_up=n >= MIN_SAMPLES_FOR_TREND,
-            trusted=False,
+            trusted=bool(meaningful and n >= MIN_SAMPLES_FOR_TREND),
             units=RUL_UNITS)
 
     def update(self, payload: Mapping, require_envelope: bool = True) -> RulEstimate:
         res = self.calc.compute(payload, require_envelope=require_envelope)
-        return self.update_vector(res.vector)
+        clean = (bool(getattr(res, "meaningful", True))
+                 and not getattr(res, "violations", ()))
+        return self.update_vector(res.vector, meaningful=clean)
 
 
 def _self_test() -> None:
@@ -223,8 +238,10 @@ def _self_test() -> None:
           f"minutes_to_zero="
           f"{'n/a' if last.minutes_to_zero is None else f'{last.minutes_to_zero:.1f}'}")
     if last.raw >= first:
-        print("  OBSERVATION: RUL did NOT fall under worsening oil pressure.")
-        print("  Consistent with R2 = -0.103. Plumbing is fine; model is not.")
+        print("  RUL did NOT fall under worsening oil pressure.")
+        fails.append("RUL did not decrease as oil pressure degraded")
+    else:
+        print(f"  RUL fell {first - last.raw:.1f} h as oil pressure fell.")
 
     print("\nCASE 4  envelope is non-increasing")
     eng.reset()
@@ -243,8 +260,14 @@ def _self_test() -> None:
 
     print("\nCASE 6  trust flag and bad input")
     if e.trusted:
-        fails.append("trusted must be False")
-    print(f"  trusted={e.trusted}")
+        fails.append("trusted must be False before warm-up")
+    print(f"  trusted={e.trusted} at samples={e.samples} (want False)")
+    eng.reset()
+    for _ in range(MIN_SAMPLES_FOR_TREND + 5):
+        w = eng.update(noisy(p))
+    if not w.trusted:
+        fails.append("trusted must be True once warmed up in envelope")
+    print(f"  trusted={w.trusted} at samples={w.samples} (want True)")
     for bad, lbl in (([0.0] * 13, "wrong length"),
                      ([float('nan')] * 14, "NaN vector")):
         try:
@@ -276,8 +299,8 @@ def _self_test() -> None:
             print(f"  - {f}")
         raise SystemExit(1)
     print("\nRUL ENGINE SELF-CHECK OK")
-    print("NOTE: smoothing makes the number stable, not correct. Units are")
-    print("      unknown and must not be labelled 'hours' on the dashboard.")
+    print("NOTE: units are hours. R2 +0.842 / MAE 93 h on four held-out")
+    print("      engines; 0.938 of the signal is the oil pressure residual.")
 
 
 if __name__ == "__main__":

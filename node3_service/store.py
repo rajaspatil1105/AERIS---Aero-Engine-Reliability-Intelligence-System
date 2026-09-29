@@ -736,8 +736,8 @@ def _self_test() -> None:
             print(f"  - {f}")
         raise SystemExit(1)
     print("\nSTORE SELF-CHECK OK")
-    print("NOTE: sessions carry models_trusted=0 while the gate is at chance")
-    print("      and RUL R2 is negative. Stored numbers are not evidence.")
+    print("NOTE: sessions carry models_trusted=0 while training data is")
+    print("      Models are synthetic-only. Stored numbers are not evidence.")
 
 
 if __name__ == "__main__":

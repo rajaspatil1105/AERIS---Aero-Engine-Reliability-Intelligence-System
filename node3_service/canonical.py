@@ -369,9 +369,9 @@ def rescore_session(
         "refused": refused,
         "status_counts": counts,
         "caveat": (
-            "verdicts produced by the models currently loaded; gate F1 is at "
-            "chance and RUL R2 is negative, so these counts are not a "
-            "trustworthy diagnosis"
+            "verdicts produced by the models currently loaded; trained on "
+            "synthetic MVEM data with one validated operating point, so "
+            "these counts are not a trustworthy diagnosis"
         ),
     }
 

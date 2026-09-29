@@ -1,6 +1,6 @@
 # AERIS - declared caveats
 
-Generated 2026-09-18 01:45 by make_caveats.py. Do not edit by hand.
+Generated 2026-09-29 01:05 by make_caveats.py. Do not edit by hand.
 
 ## Node 1 ingestion adapter - input assumptions
 

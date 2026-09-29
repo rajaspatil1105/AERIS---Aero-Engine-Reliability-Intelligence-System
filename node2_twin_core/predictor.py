@@ -23,7 +23,7 @@ KNOWN MODEL DEFECTS (measured, surface these on the UI):
                flat across a 9 kg/h excursion. Fuel faults misreport as
                lubrication_degradation, which is also the fallback class.
   no severity  every channel saturates after its first step.
-  RUL          R2 -0.103, worse than predicting the training mean.
+  RUL          R2 +0.842, MAE 93 h on four held-out engines.
 """
 from __future__ import annotations
 
@@ -106,9 +106,10 @@ MODEL_CAVEATS: dict = {
     "rul": {
         "status": "active_untrusted",
         "severity": "critical",
-        "reason": "R2 -0.103, worse than the mean predictor. The number "
-                  "carries no demonstrated accuracy.",
-        "metrics": {"r2": -0.1033, "mae": 107.0},
+        "reason": "R2 +0.842, MAE 93 h over a 1272 h label spread on "
+                  "four held-out engines. delta_oil_pressure_bar carries "
+                  "0.938 of feature importance: effectively one channel.",
+        "metrics": {"r2": 0.842, "mae": 93.0},
     },
 }
 

@@ -25,9 +25,10 @@ BASELINE_TARGETS = (
     "oil_temperature_C", "fuelflow_kgh",
 )
 
-BANNER = ("MODELS UNTRUSTED -- gate F1 0.676 = trivial baseline | RUL R2 "
-          "-0.103 | placeholder models, plumbing verified. Nothing in this "
-          "document is airworthiness evidence.")
+BANNER = ("MODELS UNVALIDATED -- gate F1 0.907 / ROC-AUC 0.985 | RUL R2 "
+          "+0.842 / MAE 93 h, held-out engines | synthetic MVEM data, one "
+          "validated operating point. Nothing in this document is "
+          "airworthiness evidence.")
 
 CSV_COLUMNS = (
     ["seq", "ts_utc", "status", "refusal_class", "meaningful",
@@ -100,6 +101,10 @@ def session_pdf(store, sid, manifest=None) -> bytes:
         from reportlab.platypus import (PageBreak, Paragraph,
                                         SimpleDocTemplate, Spacer, Table,
                                         TableStyle)
+        from reportlab.graphics.shapes import Drawing, Line, String
+        from reportlab.graphics.charts.lineplots import LinePlot
+        from reportlab.graphics.charts.barcharts import VerticalBarChart
+        from reportlab.graphics import renderPDF
     except ImportError as exc:
         raise ReportError("reportlab is not installed. Run: "
                           "python -m pip install reportlab") from exc
@@ -287,21 +292,73 @@ def session_pdf(store, sid, manifest=None) -> bytes:
                         "values the system did not produce -- refused frames "
                         "are never scored, so their columns are empty by "
                         "design rather than zero.", SMALL), Spacer(1, 2 * mm)]
-    fl = [["SEQ", "UTC", "STATUS", "REFUSAL", "P_ANOM", "LABEL",
-           "CONF", "RUL_RAW", "LAT ms"]]
+    def _series(key):
+        pts, n = [], max(1, len(rows) // 300)
+        for i, r in enumerate(rows[::n]):
+            v = r.get(key)
+            if v is not None:
+                pts.append((i * n, float(v)))
+        return pts
+
+    def _plot(pts, title, colr, gate=None):
+        d = Drawing(460, 150)
+        lp = LinePlot()
+        lp.x, lp.y, lp.width, lp.height = 40, 25, 400, 105
+        lp.data = [pts]
+        lp.lines[0].strokeColor = colr
+        lp.lines[0].strokeWidth = 0.9
+        lp.joinedLines = 1
+        lp.xValueAxis.labelTextFormat = '%d'
+        lp.yValueAxis.labelTextFormat = '%0.2f'
+        d.add(lp)
+        d.add(String(40, 138, title, fontSize=8, fillColor=DIM))
+        if gate is not None and pts:
+            ys = [v for _, v in pts]
+            lo, hi = min(ys), max(ys)
+            if hi > lo and lo <= gate <= hi:
+                y = 25 + (gate - lo) / (hi - lo) * 105
+                d.add(Line(40, y, 440, y, strokeColor=WARN,
+                           strokeDashArray=[2, 2]))
+                d.add(String(442, y - 3, 'gate', fontSize=6, fillColor=WARN))
+        return d
+
+    pa = _series("p_anom")
+    if pa:
+        story.append(_plot(pa, "anomaly probability vs frame (gate 0.50)",
+                           ACC, gate=0.5))
+        story.append(Spacer(1, 3 * mm))
+    ru = _series("rul_raw")
+    if ru:
+        story.append(_plot(ru, "rul_raw vs frame (ordering, one dominant "
+                               "channel)", colors.HexColor("#7a3b8f")))
+        story.append(Spacer(1, 3 * mm))
+
+    tally = {}
     for r in rows:
-        fl.append([
-            str(r.get("seq")),
-            str(r.get("ts_utc") or "")[11:23],
-            r.get("status") or "--",
-            r.get("refusal_class") or "--",
-            _fmt(r.get("p_anom"), 4),
-            r.get("fault_label") or "--",
-            _fmt(r.get("confidence"), 3),
-            _fmt(r.get("rul_raw"), 1),
-            _fmt(r.get("latency_ms"), 2)])
-    story.append(grid(fl, [12 * mm, 22 * mm, 22 * mm, 26 * mm, 20 * mm,
-                           30 * mm, 16 * mm, 16 * mm, 16 * mm]))
+        k = r.get("refusal_class") or (r.get("status") or "--")
+        tally[k] = tally.get(k, 0) + 1
+    if tally:
+        items = sorted(tally.items(), key=lambda kv: -kv[1])
+        d = Drawing(460, 140)
+        bc = VerticalBarChart()
+        bc.x, bc.y, bc.width, bc.height = 40, 30, 400, 95
+        bc.data = [[v for _, v in items]]
+        bc.categoryAxis.categoryNames = [k[:16] for k, _ in items]
+        bc.categoryAxis.labels.angle = 20
+        bc.categoryAxis.labels.dy = -8
+        bc.categoryAxis.labels.fontSize = 6.5
+        bc.bars[0].fillColor = ACC
+        bc.valueAxis.valueMin = 0
+        d.add(bc)
+        d.add(String(40, 130, "frames by status / refusal class",
+                     fontSize=8, fillColor=DIM))
+        story.append(d)
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(
+            "Counts: " + ", ".join(f"{k} {v}" for k, v in items) +
+            f". Total {len(rows)} frames. Per-frame values are in the CSV "
+            "export; this section is interpretation, not a transcript.",
+            SMALL))
 
     # ---- appendix ----------------------------------------------------
     story += [PageBreak(), Paragraph("APPENDIX A. MODEL CAVEATS", H2)]
@@ -316,10 +373,10 @@ def session_pdf(store, sid, manifest=None) -> bytes:
             story.append(Spacer(1, 2 * mm))
     else:
         story.append(Paragraph(
-            "Gate F1 0.676 is indistinguishable from a trivial always-fault "
-            "baseline. RUL R2 is -0.103, i.e. worse than predicting the mean, "
-            "so rul_trusted is false on every frame and RUL is exposed for "
-            "ordering only, never as a time. Baselines are healthy-only "
+            "Gate F1 is 0.907 with ROC-AUC 0.985 on ten held-out engines. "
+            "RUL scores R2 +0.842, MAE 93 h on four held-out engines, but "
+            "0.938 of its feature importance sits on one channel and all "
+            "training data is synthetic. Baselines are healthy-only "
             "regression fits, so residuals outside the trained envelope are "
             "not meaningful and such frames are refused rather than scored. "
             "Full text: CAVEATS.md in the source tree.", SMALL))

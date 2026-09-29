@@ -362,8 +362,8 @@
     {
       "filename": "rul_regressor.pkl",
       "relpath": "rul/rul_regressor.pkl",
-      "size_bytes": 78072,
-      "sha256": "d294ae38c84ca99ac86b8631ce02e1958ce6793ce91598f08e19fcacd6e36afb",
+      "size_bytes": 139144,
+      "sha256": "762375c08aff15ec446635ce3a66c43e72b15c546120babab9149f5c5ef2f137",
       "observed": {
         "python_class": "GradientBoostingRegressor",
         "module": "sklearn.ensemble._gb",

@@ -131,7 +131,7 @@ function rulBlock(f) {
   const c = (f.caveats && f.caveats.rul) || {}, m = c.metrics || {};
   return '<div class="big s-UNAVAILABLE">' + num(f.rul_raw, 1) + "</div>" +
     '<div class="dim">rul_raw &middot; units ' + esc(f.rul_units || "unknown") +
-    " &middot; ordering only, not a time</div>" +
+    " &middot; hours, modelled not certified</div>" +
     '<div class="dim" style="margin-top:6px">smoothed ' + num(f.rul, 1) +
     " (EWMA, lags on one frame)</div>" +
     '<div class="dim">trend ' + fine(f.rul_trend_per_minute) + "/min" +
@@ -260,7 +260,7 @@ function renderCold(why) {
     '<div class="dim">no frame scored</div>' + coldBars();
   $("p-rul").innerHTML =
     '<div class="big s-UNAVAILABLE">--</div>' +
-    '<div class="dim">rul_raw &middot; units unknown &middot; ordering only, ' +
+    '<div class="dim">rul_raw &middot; hours &middot; 0.94 of the signal is oil pressure, ' +
     "not a time</div>" +
     '<div class="dim">smoothed -- &middot; trend --/min</div>';
   $("p-refuse").innerHTML =

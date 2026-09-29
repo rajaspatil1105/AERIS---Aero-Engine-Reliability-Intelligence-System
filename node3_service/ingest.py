@@ -290,8 +290,9 @@ def attach_ws(app: FastAPI) -> FastAPI:
             "type": "snapshot",
             "models_trusted": False,
             "last_frame": state.last_frame,
-            "caveat": "gate is at chance and RUL R2 is negative; "
-                      "statuses are pipeline output, not validated diagnosis",
+            "caveat": "models trained on synthetic MVEM data, one validated "
+                      "operating point; statuses are pipeline output, not "
+                      "validated diagnosis",
         }
         if state.manifest is not None:
             snapshot["open_issues"] = list(

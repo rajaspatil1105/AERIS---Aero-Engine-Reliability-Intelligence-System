@@ -8,8 +8,8 @@ DESIGN NOTES
 * One TwinCore and one Store per process, built during lifespan startup.
   TwinCore's SHAP warm-up costs ~6 s, so it happens once at boot and never
   on an operator's first click.
-* /caveats is not decoration. The manifest says the gate is at chance and
-  RUL R2 is negative; the dashboard is expected to render this, and the
+* /caveats is not decoration. The manifest records measured gate performance and
+  models are synthetic-only; the dashboard is expected to render this, and the
   field `models_trusted` is false for every response produced by these
   artifacts.
 * Every processed frame is persisted before the response is returned, so
